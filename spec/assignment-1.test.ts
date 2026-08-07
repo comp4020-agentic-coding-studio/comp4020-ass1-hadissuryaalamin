@@ -11,6 +11,11 @@ import { describe, expect, it } from "vitest";
 // view, and nothing else". "Deployed and live" is checked by CI's deploy job,
 // not locally. "Static and client-side throughout" holds as long as the
 // invariants in spec/invariants.test.ts stay green.
+//
+// This file was rewritten (not preserved) when the concept pivoted from a
+// rule-based tool-selection pipeline to this hidden-state-probe guessing
+// game — see PLAN.md. It re-derives the contract from the new mechanic
+// rather than adapting the old assertions.
 
 const distPath = resolve("dist/index.html");
 const doc = existsSync(distPath)
@@ -19,60 +24,60 @@ const doc = existsSync(distPath)
 
 // Spec: "the visitor does something that changes what they see — state the
 // core interaction plainly enough to write a test for it." The core
-// interaction here: type a prompt, submit it, watch it animate through
-// User Prompt -> LLM -> Tool Decision -> Tool Call (if needed) -> Tool
-// Result -> Final Response. This only checks the structural hooks exist in
-// the shipped markup, not the animation itself.
-describe("core interaction: the prompt pipeline is present in the shipped page", () => {
+// interaction here: read a prompt and the model's stated reasoning, guess
+// whether a tool is really needed, then watch the layer-stack animation
+// reveal the hidden-state probe's verdict. This only checks the structural
+// hooks exist in the shipped markup, not the animation itself.
+describe("core interaction: the probe guessing game is present in the shipped page", () => {
   it("built the home page", () => {
     expect(existsSync(distPath), "run `pnpm build` first").toBe(true);
   });
 
-  it("has a prompt input the visitor can type into", () => {
-    expect(doc?.querySelector('[data-testid="prompt-input"]')).toBeTruthy();
+  it("shows the current round's prompt", () => {
+    expect(doc?.querySelector('[data-testid="prompt-card"]')).toBeTruthy();
   });
 
-  it("has a control that submits the prompt", () => {
-    expect(doc?.querySelector('[data-testid="prompt-submit"]')).toBeTruthy();
+  it("shows the model's stated reasoning before the visitor guesses", () => {
+    expect(doc?.querySelector('[data-testid="stated-reasoning"]')).toBeTruthy();
   });
 
-  it("has a distinct element for every stage of the pipeline", () => {
-    const stages = [
-      "stage-prompt",
-      "stage-llm",
-      "stage-decision",
-      "stage-tool-call",
-      "stage-tool-result",
-      "stage-final-response",
-    ];
-    for (const stage of stages) {
-      expect(
-        doc?.querySelector(`[data-testid="${stage}"]`),
-        `missing [data-testid="${stage}"] — one element per pipeline stage`,
-      ).toBeTruthy();
-    }
+  it("has a control to guess 'needs a tool' and a control to guess 'no tool needed'", () => {
+    expect(doc?.querySelector('[data-testid="guess-yes"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="guess-no"]')).toBeTruthy();
+  });
+
+  it("has a layer-stack diagram and a probe box for the reveal", () => {
+    expect(doc?.querySelector('[data-testid="layer-stack"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="probe-box"]')).toBeTruthy();
+  });
+
+  it("tracks a running score across rounds", () => {
+    expect(doc?.querySelector('[data-testid="score"]')).toBeTruthy();
+  });
+
+  it("has an end-of-session summary, initially hidden", () => {
+    const summary = doc?.querySelector('[data-testid="summary"]');
+    expect(summary).toBeTruthy();
+    expect(summary?.hasAttribute("hidden")).toBe(true);
   });
 });
 
-// Spec: "clear distinction between tool call and no tool call", with example
-// tools get_schedule, get_next, add_task. Tested as a pure function so the
-// contract survives whatever UI or animation ends up wrapping it — this is
-// the actual "LLM decides" mechanic, and it's the one thing in this prototype
-// that must be simulated rather than a real model call, since the deployed
-// site is static and client-side only.
-describe("tool-call decision: the core mechanic", () => {
-  const TOOL_NAMES = ["get_schedule", "get_next", "add_task"];
-
-  it("calls a tool for a prompt that needs live data", async () => {
-    const { decideTool } = await import("../src/lib/agent-logic.ts");
-    const decision = decideTool("What is on my schedule tomorrow?");
-    expect(decision.toolCall).not.toBeNull();
-    expect(TOOL_NAMES).toContain(decision.toolCall?.name);
+// Spec: "clear distinction between tool call and no tool call". The decision
+// itself is deliberately hand-authored data, not computed — a real
+// hidden-state probe needs a real model, which this static, client-side site
+// doesn't have. Tested as a pure data contract so it survives whatever UI or
+// animation ends up wrapping it.
+describe("round data: the core mechanic", () => {
+  it("ships exactly 8 hand-authored rounds", async () => {
+    const { ROUNDS } = await import("../src/lib/probe-rounds.ts");
+    expect(ROUNDS.length).toBe(8);
   });
 
-  it("answers directly, with no tool call, for a prompt needing no live data", async () => {
-    const { decideTool } = await import("../src/lib/agent-logic.ts");
-    const decision = decideTool("Explain reinforcement learning.");
-    expect(decision.toolCall).toBeNull();
+  it("doesn't strawman the model: some rounds agree with its stated reasoning, some don't", async () => {
+    const { ROUNDS, statedReasoningAgrees } = await import("../src/lib/probe-rounds.ts");
+    const agreeing = ROUNDS.filter(statedReasoningAgrees);
+    const disagreeing = ROUNDS.filter((round) => !statedReasoningAgrees(round));
+    expect(agreeing.length).toBeGreaterThan(0);
+    expect(disagreeing.length).toBeGreaterThan(0);
   });
 });

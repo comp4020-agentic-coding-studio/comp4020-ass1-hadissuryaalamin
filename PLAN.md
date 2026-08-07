@@ -2,10 +2,9 @@
 
 ## Status
 
-**Draft plan — awaiting sign-off.** The open questions below have been
-answered in chat; this is the resulting draft for review. A few small
-content details (exact copy, exact numbers) are marked "adjustable" —
-everything else needs an explicit yes before implementation starts.
+**Agreed (2026-08-08). Implementation under way.** The plan below is the
+agreed shape; the "adjustable" content (exact copy, exact numbers) shipped
+as-is unless a later commit says otherwise.
 
 ## Brief (Hadi, 2026-08-08)
 
