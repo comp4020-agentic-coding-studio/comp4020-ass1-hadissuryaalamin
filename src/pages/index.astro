@@ -1,20 +1,98 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { EXAMPLE_PROMPTS } from "../lib/agent-logic.ts";
 ---
 
-<Layout title="COMP4020 prototype">
+<Layout title="LLM Agent Visualizer">
   <header>
     <nav aria-label="Primary">
       <a href="./">Home</a>
     </nav>
   </header>
   <main>
-    <h1>COMP4020 prototype</h1>
-    <p data-testid="intro">
-      Replace this with your prototype. This week's brief is on the course
-      website; <code>spec/README.md</code> explains how the checks in this repo
-      relate to it.
+    <h1>LLM Agent Visualizer</h1>
+    <p class="lede">
+      Type a question below and watch, step by step, how the model decides
+      whether it needs to call a tool to answer it.
     </p>
+
+    <form data-testid="prompt-form" novalidate>
+      <label for="prompt-input">Your prompt</label>
+      <div class="input-row">
+        <input
+          id="prompt-input"
+          name="prompt"
+          type="text"
+          data-testid="prompt-input"
+          autocomplete="off"
+          placeholder="e.g. What is on my schedule tomorrow?"
+        />
+        <button type="submit" data-testid="prompt-submit">Run</button>
+      </div>
+      <p id="prompt-error" class="error" role="alert" hidden>
+        Type a prompt first.
+      </p>
+    </form>
+
+    <div class="examples" role="group" aria-label="Example prompts">
+      <span class="examples-label">Try:</span>
+      {
+        EXAMPLE_PROMPTS.map((example) => (
+          <button type="button" class="chip" data-example-prompt={example}>
+            {example}
+          </button>
+        ))
+      }
+    </div>
+
+    <p class="sr-only" role="status" aria-live="polite" data-testid="pipeline-status">
+    </p>
+
+    <ol class="pipeline">
+      <li data-testid="stage-prompt" data-state="idle">
+        <h2>1. User Prompt</h2>
+        <p class="stage-explainer">
+          The raw text you typed — this is all the model has to go on.
+        </p>
+        <div data-role="content"></div>
+      </li>
+      <li data-testid="stage-llm" data-state="idle">
+        <h2>2. LLM</h2>
+        <p class="stage-explainer">
+          The model reads the prompt and starts working out how to respond.
+        </p>
+        <div data-role="content"></div>
+      </li>
+      <li data-testid="stage-decision" data-state="idle">
+        <h2>3. Tool Decision</h2>
+        <p class="stage-explainer">
+          The model decides whether it already knows the answer, or needs to
+          call a tool to get live information first.
+        </p>
+        <div data-role="content"></div>
+      </li>
+      <li data-testid="stage-tool-call" data-state="idle">
+        <h2>4. Tool Call</h2>
+        <p class="stage-explainer">
+          If a tool is needed, the model calls it with the right arguments.
+        </p>
+        <div data-role="content"></div>
+      </li>
+      <li data-testid="stage-tool-result" data-state="idle">
+        <h2>5. Tool Result</h2>
+        <p class="stage-explainer">
+          The tool runs and hands real data back to the model.
+        </p>
+        <div data-role="content"></div>
+      </li>
+      <li data-testid="stage-final-response" data-state="idle">
+        <h2>6. Final Response</h2>
+        <p class="stage-explainer">
+          The model turns whatever it now knows into a plain-language answer.
+        </p>
+        <div data-role="content"></div>
+      </li>
+    </ol>
   </main>
   <script src="../scripts/main.ts"></script>
 </Layout>
