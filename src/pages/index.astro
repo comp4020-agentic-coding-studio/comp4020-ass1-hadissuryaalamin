@@ -50,21 +50,21 @@ import { EXAMPLE_PROMPTS } from "../lib/agent-logic.ts";
 
     <ol class="pipeline">
       <li data-testid="stage-prompt" data-state="idle">
-        <h2>1. User Prompt</h2>
+        <h2><span class="stage-icon" aria-hidden="true">💬</span>1. User Prompt</h2>
         <p class="stage-explainer">
           The raw text you typed — this is all the model has to go on.
         </p>
         <div data-role="content"></div>
       </li>
       <li data-testid="stage-llm" data-state="idle">
-        <h2>2. LLM</h2>
+        <h2><span class="stage-icon" aria-hidden="true">🧠</span>2. LLM</h2>
         <p class="stage-explainer">
           The model reads the prompt and starts working out how to respond.
         </p>
         <div data-role="content"></div>
       </li>
       <li data-testid="stage-decision" data-state="idle">
-        <h2>3. Tool Decision</h2>
+        <h2><span class="stage-icon" aria-hidden="true">🧭</span>3. Tool Decision</h2>
         <p class="stage-explainer">
           The model decides whether it already knows the answer, or needs to
           call a tool to get live information first.
@@ -72,21 +72,21 @@ import { EXAMPLE_PROMPTS } from "../lib/agent-logic.ts";
         <div data-role="content"></div>
       </li>
       <li data-testid="stage-tool-call" data-state="idle">
-        <h2>4. Tool Call</h2>
+        <h2><span class="stage-icon" aria-hidden="true">🔧</span>4. Tool Call</h2>
         <p class="stage-explainer">
           If a tool is needed, the model calls it with the right arguments.
         </p>
         <div data-role="content"></div>
       </li>
       <li data-testid="stage-tool-result" data-state="idle">
-        <h2>5. Tool Result</h2>
+        <h2><span class="stage-icon" aria-hidden="true">📦</span>5. Tool Result</h2>
         <p class="stage-explainer">
           The tool runs and hands real data back to the model.
         </p>
         <div data-role="content"></div>
       </li>
       <li data-testid="stage-final-response" data-state="idle">
-        <h2>6. Final Response</h2>
+        <h2><span class="stage-icon" aria-hidden="true">✨</span>6. Final Response</h2>
         <p class="stage-explainer">
           The model turns whatever it now knows into a plain-language answer.
         </p>
