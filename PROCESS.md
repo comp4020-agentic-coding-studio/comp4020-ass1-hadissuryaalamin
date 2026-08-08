@@ -1,74 +1,69 @@
 # Process overview
 
-<!-- TEMPLATE: this file is a shape to fill in, not a form. Replace everything
-     in it with your own overview, and delete this comment — `pnpm
-     check:evidence` will remind you if it's still here. -->
-
-A reading-guide to how the work came together --- a map to your process, not an
-essay about it. Markers read this file and follow its citations; they don't
-trawl the repo for evidence you didn't point at, so if a moment mattered, cite
-it.
-
-This file is the shape; the course site's
-[assessment page](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#what-you-submit)
-is the requirement, and each brief adds its own word count and moment count.
-
 ## What I built
 
-One paragraph: the thing, and the idea behind it.
+An interactive explainer called "Tool or Not?" that argues a specific,
+counterintuitive point: a model's hidden state can already know whether it
+needs a tool call in the exact moments where what it *says* out loud gets it
+wrong. Loosely grounded in recent hidden-state-probing research (kept
+illustrative — no numbers cited, since the site is static and has no real
+model behind it), the site shows a visitor a prompt and a model's spoken
+reasoning, has them guess whether a tool is really needed, then animates a
+layer-stack diagram revealing a hidden-state probe's verdict — which
+sometimes agrees with the stated reasoning and sometimes catches it being
+wrong, in both directions.
 
 ## The moments that mattered
 
-Three or four for an assignment; fewer is fine for a weekly prototype. Keep the
-list short so each moment has room to do all four jobs:
+1. **Turning the brief into failing tests before writing a single feature.**
+   Before any UI existed, `spec/assignment-1.test.ts` encoded the shape of
+   the interaction the brief demanded — a prompt input, a visible
+   tool-call/no-tool-call decision — and it started red on purpose. Re-running
+   `pnpm check` and watching that one file, and only that file, go green was
+   the actual signal that the first build was done, not my own read of the
+   page.
+   [`46a94b2`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/46a94b2)
 
-1. **what happened** --- the problem, or the thing the agent got wrong
-2. **what you did instead of the obvious thing** --- the call you made, and why
-   it beat the obvious one
-3. **how you knew it was right** --- the check you ran, the viewport you looked
-   at, what you read before accepting the diff
-4. **the citation** --- a commit or commit range, a `CLAUDE.md` change, a check
-   that went from red to green, a prompt paired with the commit it produced
+2. **The first build passed every check and still wasn't good.** I shipped a
+   rule-based `decideTool()` function and animated it across a six-stage
+   pipeline (prompt → LLM → decision → tool call → tool result → final
+   response). `pnpm check` was fully green at both viewports. But the
+   "decision" was a regex classifier restating its own input back at the
+   visitor — no real point of view, nothing a reader couldn't have guessed
+   themselves. Green checks told me it worked; they couldn't tell me it was
+   worth building.
+   [`1eb6511...e6a2e97`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/compare/1eb6511...e6a2e97)
 
-Jobs 2 and 3 are the ones the repo can't tell a reader on its own, so they're
-where the marks are. The strongest moments are the ones where a correction
-landed in the **harness** rather than in another prompt --- a rule added to
-`CLAUDE.md`, a check wired up, an attempt thrown away: re-prompting until it
-passes is the routine case, and changing what the agent works against is the
-skilled one.
+3. **Throwing the spec-compliant build away for a real idea, gated behind an
+   explicit sign-off.** Rather than keep polishing the pipeline, I re-grounded
+   the whole concept in an actual finding — that a probe on a model's hidden
+   state predicts tool need more reliably than the model's own verbalized
+   reasoning does. That meant discarding working code, so before touching any
+   implementation the new shape went down in `PLAN.md` (the round data, the
+   deliberate mix of agreeing and disagreeing rounds, the file-by-file plan)
+   and waited for an explicit go-ahead rather than assuming green checks on
+   the old build meant the pipeline was fine to iterate on. The go-ahead was
+   one word:
 
-Cite each moment as a link whose text is the commit hash or range and whose
-target is this repo's commit or compare URL, so a reader clicks straight to the
-evidence:
+   > Agreed
 
-- one commit: [`a1b2c3d`](https://github.com/YOUR-ORG/YOUR-REPO/commit/a1b2c3d)
-- a range:
-  [`a1b2c3d...e4f5a6b`](https://github.com/YOUR-ORG/YOUR-REPO/compare/a1b2c3d...e4f5a6b)
+   which is what turned the plan into the rewrite in the commit below — the
+   whole pipeline replaced by the probe-guessing game, `agent-logic.ts` and
+   `pipeline.ts` deleted outright rather than adapted.
+   [`78c4f59...fc82a45`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/compare/78c4f59...fc82a45)
 
-To pair a prompt with the commit it produced, quote the prompt (curated, not a
-full transcript) next to the citation:
-
-> the prompt, verbatim
-
-Screenshots are welcome where one carries the verification better than a
-sentence does. Commit the file to this repo and link it with a **relative**
-path, which is what makes it render on GitHub: `![alt text](docs/before.png)`.
-Images don't count towards the word count and don't replace the citation.
-
-### A worked moment, for shape
-
-Delete this section along with the rest of the boilerplate --- it's here to show
-the four jobs in one paragraph, not to be imitated in content.
-
-> The date formatter kept coming back with `toLocaleDateString()` and no locale
-> argument, so the same build rendered differently on my machine and in CI. I'd
-> already re-prompted it twice, which fixed the line but not the habit, so the
-> third time I put the rule in `CLAUDE.md` instead
-> ([`3f9ac21`](https://github.com/YOUR-ORG/YOUR-REPO/commit/3f9ac21)) and added
-> a spec test that fails on a bare `toLocaleDateString`. That's what told me it
-> had actually taken: the test went red against the old code and green against
-> the new, and the next two features it wrote passed it without prompting
-> ([`3f9ac21...b7e0d14`](https://github.com/YOUR-ORG/YOUR-REPO/compare/3f9ac21...b7e0d14)).
+4. **Checking the interaction actually worked, not just that it built.**
+   This environment has no headless-browser tool, so `pnpm check` passing
+   only proved the new markup existed — not that clicking a guess button
+   actually drove the layer-stack animation, updated the score, or reset
+   correctly on "Play again". Rather than call structural checks good enough,
+   I wrote a throwaway jsdom test that instantiated the real controller,
+   dispatched real click events, and advanced fake timers through a full
+   8-round playthrough, asserting on the DOM state after each step. It caught
+   nothing wrong this time, but it's the difference between "the tests pass"
+   and "I watched it work" — the test itself was deleted before committing,
+   since it was a one-off check rather than part of the shipped contract.
+   [`fc82a45`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/fc82a45)
 
 ## Before you ship
 
