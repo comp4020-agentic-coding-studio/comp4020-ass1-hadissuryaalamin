@@ -13,6 +13,8 @@
   --color-end-soft: #fdf2f8;
   --color-visited: #93c5fd;
   --color-visited-soft: #eff6ff;
+  --color-frontier: #a855f7;
+  --color-frontier-soft: #faf5ff;
   --color-path: #f59e0b;
   --color-correct: #16a34a;
   --color-incorrect: #d6472b;
@@ -173,24 +175,33 @@ a {
 
 .grid {
   display: grid;
-  flex: 1 1 auto;
-  max-width: 56rem;
+  flex: 1 1 32rem;
+  max-width: 40rem;
   margin-block: 1.5rem;
   border: 2px solid var(--color-border);
   border-radius: 0.6rem;
   padding: 1rem;
   background: var(--color-bg);
   touch-action: none;
+  overflow-x: auto;
 }
 
 .grid-cell {
   position: relative;
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
   background: var(--color-surface);
   border: 2px solid var(--color-border);
   transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
   cursor: pointer;
+  font-size: 0.6rem;
+  line-height: 1;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  color: var(--color-text);
+  overflow: hidden;
 }
 
 .grid-cell[data-state="wall"] {
@@ -212,6 +223,12 @@ a {
 .grid-cell[data-state="visited"] {
   background: var(--color-visited-soft);
   border-color: var(--color-visited);
+}
+
+.grid-cell[data-state="frontier"] {
+  background: var(--color-frontier-soft);
+  border-color: var(--color-frontier);
+  border-style: dashed;
 }
 
 .grid-cell[data-state="path"] {
@@ -248,8 +265,9 @@ a {
 /* Pseudocode panel */
 
 .pseudocode-panel {
-  flex: 0 1 20rem;
-  min-width: 14rem;
+  flex: 1 1 24rem;
+  min-width: 16rem;
+  max-width: 28rem;
   margin-block: 1.5rem;
   padding: 1rem 1.25rem;
   border: 2px solid var(--color-border);
@@ -271,7 +289,7 @@ a {
   padding-inline-start: 1.4rem;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 0.85rem;
-  white-space: pre;
+  white-space: pre-wrap;
 }
 
 .pseudocode-panel li {
@@ -285,6 +303,33 @@ a {
   background: var(--color-visited-soft);
   color: var(--color-text);
   font-weight: 600;
+}
+
+/* Step controls — the manual Prev/Next walkthrough */
+
+.step-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-block-end: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--color-border);
+  border-radius: 0.9rem;
+  background: var(--color-surface);
+}
+
+.step-counter {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.step-caption {
+  flex: 1 1 100%;
+  margin: 0;
+  order: 3;
 }
 
 /* Result banner */
@@ -342,8 +387,14 @@ a {
     flex-direction: column;
   }
 
+  .grid {
+    max-width: 100%;
+    width: 100%;
+  }
+
   .pseudocode-panel {
     flex-basis: auto;
+    max-width: none;
     width: 100%;
   }
 }

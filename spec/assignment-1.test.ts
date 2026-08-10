@@ -76,6 +76,19 @@ describe("core interaction: the weight-dial pathfinder is present in the shipped
     expect(doc?.querySelector('[data-testid="pseudocode-panel"]')).toBeTruthy();
     expect(doc?.querySelectorAll('[data-testid="pseudo-line"]').length).toBe(11);
   });
+
+  // Spec: the visitor should be able to walk through the algorithm, not just
+  // watch it animate — Prev/Next controls advance one pop-and-expand
+  // iteration at a time, alongside a visible (not just screen-reader-only)
+  // caption naming what happened, since the per-node cost labels alone are
+  // too small to read on a phone viewport.
+  it("has a manual step walkthrough — prev/next controls, a counter, and a visible caption", () => {
+    expect(doc?.querySelector('[data-testid="step-prev"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="step-next"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="step-counter"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="step-caption"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="step-controls"]')?.hasAttribute("hidden")).toBe(true);
+  });
 });
 
 // Spec: "clear distinction between [outcomes]". The distinction this site

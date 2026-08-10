@@ -73,3 +73,52 @@ describe("the trap maze — the property the whole site demonstrates", () => {
     }
   });
 });
+
+describe("steps — the per-pop trace behind the manual walkthrough", () => {
+  const walls = createTrapMaze();
+
+  it.each([0, 1, 3])("has exactly one step per popped cell at weight %i", (weight) => {
+    const result = search(walls, DEFAULT_START, DEFAULT_END, weight);
+    expect(result.steps.length).toBe(result.expandedCount);
+    expect(result.steps.at(-1)?.coord).toEqual(DEFAULT_END);
+  });
+
+  it("every step's f is exactly g + weight*h", () => {
+    const weight = 1.5;
+    const result = search(walls, DEFAULT_START, DEFAULT_END, weight);
+    for (const step of result.steps) {
+      expect(step.f).toBeCloseTo(step.g + weight * step.h);
+    }
+  });
+
+  it("a relaxed neighbor's tentativeG is always one more than the popped cell's g", () => {
+    const result = search(walls, DEFAULT_START, DEFAULT_END, 1);
+    for (const step of result.steps) {
+      for (const neighbor of step.neighbors) {
+        if (neighbor.status === "relaxed") {
+          expect(neighbor.tentativeG).toBe(step.g + 1);
+        }
+      }
+    }
+  });
+
+  it("wall and closed neighbors carry no cost, relaxed and skipped ones always do", () => {
+    const result = search(walls, DEFAULT_START, DEFAULT_END, 1);
+    for (const step of result.steps) {
+      for (const neighbor of step.neighbors) {
+        if (neighbor.status === "wall" || neighbor.status === "closed") {
+          expect(neighbor.tentativeG).toBeNull();
+          expect(neighbor.f).toBeNull();
+        } else {
+          expect(neighbor.tentativeG).not.toBeNull();
+          expect(neighbor.f).not.toBeNull();
+        }
+      }
+    }
+  });
+
+  it("the end's step has no neighbors — the loop breaks before expanding it", () => {
+    const result = search(walls, DEFAULT_START, DEFAULT_END, 1);
+    expect(result.steps.at(-1)?.neighbors).toEqual([]);
+  });
+});

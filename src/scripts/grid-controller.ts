@@ -1,4 +1,4 @@
-import { search, type Coord } from "../lib/astar.ts";
+import { manhattan, search, type Coord, type SearchResult } from "../lib/astar.ts";
 import { createEmptyWalls, createTrapMaze, DEFAULT_END, DEFAULT_START, GRID_COLS, GRID_ROWS } from "../lib/mazes.ts";
 import { PHASE_LINES, type PseudoPhase } from "../lib/pseudocode.ts";
 
@@ -11,12 +11,12 @@ function coordEq(a: Coord, b: Coord): boolean {
   return a.row === b.row && a.col === b.col;
 }
 
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
+function key(c: Coord): string {
+  return `${c.row},${c.col}`;
+}
+
+function formatCost(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 /** Classifies a weight into the algorithm it currently behaves as. */
@@ -30,9 +30,11 @@ function algorithmLabel(weight: number): string {
 
 /**
  * Owns the grid model (walls + start/end + weight), wires cell activation
- * (click/tap/drag/keyboard) to the current mode, and runs `search()` +
- * a staggered, runId-guarded reveal animation on Run. Any edit to the maze
- * cancels a pending reveal cleanly, same pattern as RoundController.
+ * (click/tap/drag/keyboard) to the current mode, and — on Run — computes the
+ * search once and exposes it as a manual, step-indexed walkthrough. Every
+ * render is a pure function of (result, stepIndex): Prev/Next just move the
+ * index and re-derive node costs by replaying steps[0..index) from scratch,
+ * so there's no incremental state to get out of sync and no timers to race.
  */
 export class GridController {
   private readonly root: ParentNode;
@@ -43,9 +45,14 @@ export class GridController {
   private focused: Coord = { ...DEFAULT_START };
   private isPainting = false;
   private lastPainted: string | null = null;
-  private runId = 0;
-  private timeouts: number[] = [];
   private historyCount = 0;
+
+  private result: SearchResult | null = null;
+  private stepIndex = 0;
+  private totalSteps = 0;
+  private historyRecorded = false;
+  private weightAtRun = 1;
+  private optimalLengthAtRun = -1;
 
   constructor(root: ParentNode) {
     this.root = root;
@@ -67,6 +74,8 @@ export class GridController {
     this.query<HTMLButtonElement>('[data-testid="load-trap-button"]')?.addEventListener("click", () =>
       this.loadTrapMaze(),
     );
+    this.query<HTMLButtonElement>('[data-testid="step-prev"]')?.addEventListener("click", () => this.stepPrev());
+    this.query<HTMLButtonElement>('[data-testid="step-next"]')?.addEventListener("click", () => this.stepNext());
 
     const grid = this.query<HTMLElement>('[data-testid="grid"]');
     grid?.addEventListener("pointerdown", (event) => this.onPointerDown(event));
@@ -119,7 +128,7 @@ export class GridController {
     this.activate(coord);
     if (this.mode === "draw" || this.mode === "erase") {
       this.isPainting = true;
-      this.lastPainted = `${coord.row},${coord.col}`;
+      this.lastPainted = key(coord);
     }
   }
 
@@ -127,9 +136,9 @@ export class GridController {
     if (!this.isPainting || (event as PointerEvent).pointerType !== "mouse") return;
     const coord = this.cellFromEvent(event);
     if (!coord) return;
-    const key = `${coord.row},${coord.col}`;
-    if (key === this.lastPainted) return;
-    this.lastPainted = key;
+    const k = key(coord);
+    if (k === this.lastPainted) return;
+    this.lastPainted = k;
     this.activate(coord);
   }
 
@@ -165,7 +174,7 @@ export class GridController {
     }
   }
 
-  /** Applies the current mode to a cell, then cancels any stale reveal in flight. */
+  /** Applies the current mode to a cell, then drops any in-progress walkthrough — the maze changed under it. */
   private activate(coord: Coord): void {
     const isStart = coordEq(coord, this.startCoord);
     const isEnd = coordEq(coord, this.endCoord);
@@ -191,20 +200,12 @@ export class GridController {
         break;
     }
 
-    this.cancelPending();
-    this.hideResultBanner();
-    this.setPseudoPhase(null);
-    this.renderAllCells();
-    this.renderAllEdges();
+    this.resetVisualization();
   }
 
   private clearWalls(): void {
     this.walls = createEmptyWalls();
-    this.cancelPending();
-    this.hideResultBanner();
-    this.setPseudoPhase(null);
-    this.renderAllCells();
-    this.renderAllEdges();
+    this.resetVisualization();
     this.announce("Walls cleared.");
   }
 
@@ -212,12 +213,22 @@ export class GridController {
     this.walls = createTrapMaze();
     this.startCoord = { ...DEFAULT_START };
     this.endCoord = { ...DEFAULT_END };
-    this.cancelPending();
+    this.resetVisualization();
+    this.announce("Trap maze loaded. A weight past about 2.6 will find a longer-than-optimal path here.");
+  }
+
+  /** Drops any active/past walkthrough and redraws the grid at its plain baseline (no costs, no run). */
+  private resetVisualization(): void {
+    this.result = null;
+    this.stepIndex = 0;
+    this.totalSteps = 0;
+    this.historyRecorded = false;
+    this.showStepControls(false);
     this.hideResultBanner();
+    this.setText('[data-testid="step-caption"]', "");
     this.setPseudoPhase(null);
     this.renderAllCells();
     this.renderAllEdges();
-    this.announce("Trap maze loaded. A weight past about 2.6 will find a longer-than-optimal path here.");
   }
 
   private renderAllCells(): void {
@@ -235,6 +246,7 @@ export class GridController {
     const isEnd = coordEq(coord, this.endCoord);
     const state = isStart ? "start" : isEnd ? "end" : this.walls[coord.row][coord.col] ? "wall" : "empty";
     el.dataset.state = state;
+    el.textContent = "";
     el.setAttribute("aria-label", `Row ${coord.row + 1}, column ${coord.col + 1}, ${state}`);
   }
 
@@ -255,76 +267,200 @@ export class GridController {
   }
 
   private runSearch(): void {
-    this.cancelPending();
-    this.hideResultBanner();
-    this.setPseudoPhase(null);
-    this.renderAllCells();
-    this.renderAllEdges();
+    this.resetVisualization();
 
     const weight = this.currentWeight();
     const result = search(this.walls, this.startCoord, this.endCoord, weight);
     const optimalLength = search(this.walls, this.startCoord, this.endCoord, 1).pathLength;
 
-    const runId = ++this.runId;
-    const reduceMotion = prefersReducedMotion();
-    const visitedToShow = result.visitedOrder.filter((c) => !coordEq(c, this.startCoord) && !coordEq(c, this.endCoord));
-    const pathToShow = result.path.filter((c) => !coordEq(c, this.startCoord) && !coordEq(c, this.endCoord));
-    const visitedDelay = reduceMotion ? 0 : 12;
-    const pathDelay = reduceMotion ? 0 : 55;
-
-    this.announce(`Running ${algorithmLabel(weight)} at weight ${weight.toFixed(1)}. Expanding ${result.expandedCount} cells…`);
-
-    visitedToShow.forEach((coord, i) => {
-      this.schedule(visitedDelay * i, runId, () => {
-        const el = this.cellEl(coord);
-        if (el) el.dataset.state = "visited";
-        this.setPseudoPhase("loopPop");
-      });
-      if (visitedDelay > 0) {
-        this.schedule(visitedDelay * i + visitedDelay / 2, runId, () => {
-          this.setPseudoPhase("loopExpand");
-        });
-      }
-    });
-
-    const pathStartDelay = visitedDelay * visitedToShow.length;
-    this.schedule(pathStartDelay, runId, () => this.setPseudoPhase("reconstruct"));
-
-    pathToShow.forEach((coord, i) => {
-      this.schedule(pathStartDelay + pathDelay * (i + 1), runId, () => {
-        const el = this.cellEl(coord);
-        if (el) el.dataset.state = "path";
-      });
-    });
-
-    const pathEdgeDelay = new Map<string, number>([
-      [`${this.startCoord.row},${this.startCoord.col}`, 0],
-      [`${this.endCoord.row},${this.endCoord.col}`, 0],
-    ]);
-    pathToShow.forEach((coord, i) => {
-      pathEdgeDelay.set(`${coord.row},${coord.col}`, pathStartDelay + pathDelay * (i + 1));
-    });
-    for (let i = 0; i < result.path.length - 1; i++) {
-      const a = result.path[i];
-      const b = result.path[i + 1];
-      const delay = Math.max(pathEdgeDelay.get(`${a.row},${a.col}`) ?? 0, pathEdgeDelay.get(`${b.row},${b.col}`) ?? 0);
-      const dir: EdgeDir = a.row === b.row ? "right" : "down";
-      const ownerRow = dir === "right" ? a.row : Math.min(a.row, b.row);
-      const ownerCol = dir === "right" ? Math.min(a.col, b.col) : a.col;
-      this.schedule(delay, runId, () => {
-        const el = this.edgeEl(ownerRow, ownerCol, dir);
-        if (el) el.dataset.state = "path";
-      });
-    }
-
-    const finishDelay = pathStartDelay + pathDelay * (pathToShow.length + 1);
-    this.schedule(finishDelay, runId, () => {
-      this.setPseudoPhase("done");
-      this.showResult(weight, result, optimalLength);
-    });
+    this.result = result;
+    this.weightAtRun = weight;
+    this.optimalLengthAtRun = optimalLength;
+    this.stepIndex = 0;
+    this.totalSteps = result.steps.length + 1;
+    this.historyRecorded = false;
+    this.showStepControls(true);
+    this.renderStep();
   }
 
-  private showResult(weight: number, result: ReturnType<typeof search>, optimalLength: number): void {
+  private stepPrev(): void {
+    if (!this.result || this.stepIndex === 0) return;
+    this.stepIndex -= 1;
+    this.renderStep();
+  }
+
+  private stepNext(): void {
+    if (!this.result || this.stepIndex === this.totalSteps) return;
+    this.stepIndex += 1;
+    this.renderStep();
+  }
+
+  private showStepControls(show: boolean): void {
+    const el = this.query<HTMLElement>('[data-testid="step-controls"]');
+    if (el) el.hidden = !show;
+  }
+
+  /** Replays steps[0..stepIndex) to derive every node's currently-known g/f and which nodes are settled. */
+  private computeCostState(): { g: Map<string, number>; f: Map<string, number>; popped: Set<string> } {
+    const g = new Map<string, number>();
+    const f = new Map<string, number>();
+    const popped = new Set<string>();
+    if (!this.result) return { g, f, popped };
+
+    g.set(key(this.startCoord), 0);
+    f.set(key(this.startCoord), this.weightAtRun * manhattan(this.startCoord, this.endCoord));
+
+    for (let i = 0; i < this.stepIndex; i++) {
+      const step = this.result.steps[i];
+      const stepKey = key(step.coord);
+      g.set(stepKey, step.g);
+      f.set(stepKey, step.f);
+      popped.add(stepKey);
+      for (const neighbor of step.neighbors) {
+        if (neighbor.status === "relaxed" && neighbor.tentativeG !== null && neighbor.f !== null) {
+          const neighborKey = key(neighbor.coord);
+          g.set(neighborKey, neighbor.tentativeG);
+          f.set(neighborKey, neighbor.f);
+        }
+      }
+    }
+    return { g, f, popped };
+  }
+
+  /** The single render pass driven by (result, stepIndex): nodes, edges, pseudocode, controls, result. */
+  private renderStep(): void {
+    if (!this.result) {
+      this.renderAllCells();
+      this.renderAllEdges();
+      return;
+    }
+
+    const isFinish = this.stepIndex === this.totalSteps;
+    const { g, f, popped } = this.computeCostState();
+    const pathKeys = new Set(this.result.path.map(key));
+
+    for (let row = 0; row < GRID_ROWS; row++) {
+      for (let col = 0; col < GRID_COLS; col++) {
+        const coord = { row, col };
+        const el = this.cellEl(coord);
+        if (!el) continue;
+        const cellKey = key(coord);
+        const isStart = coordEq(coord, this.startCoord);
+        const isEnd = coordEq(coord, this.endCoord);
+        const isWall = this.walls[row][col];
+
+        let state: string;
+        if (isStart) state = "start";
+        else if (isEnd) state = "end";
+        else if (isWall) state = "wall";
+        else if (isFinish && pathKeys.has(cellKey)) state = "path";
+        else if (popped.has(cellKey)) state = "visited";
+        else if (g.has(cellKey)) state = "frontier";
+        else state = "empty";
+        el.dataset.state = state;
+
+        const gv = g.get(cellKey);
+        const fv = f.get(cellKey);
+        const hasCost = !isWall && gv !== undefined && fv !== undefined;
+        el.textContent = hasCost ? `${formatCost(gv)}/${formatCost(fv)}` : "";
+        el.setAttribute(
+          "aria-label",
+          hasCost
+            ? `Row ${row + 1}, column ${col + 1}, ${state}, cost g=${formatCost(gv)} f=${formatCost(fv)}`
+            : `Row ${row + 1}, column ${col + 1}, ${state}`,
+        );
+      }
+    }
+
+    this.renderAllEdges();
+    if (isFinish) {
+      for (let i = 0; i < this.result.path.length - 1; i++) {
+        const a = this.result.path[i];
+        const b = this.result.path[i + 1];
+        const dir: EdgeDir = a.row === b.row ? "right" : "down";
+        const ownerRow = dir === "right" ? a.row : Math.min(a.row, b.row);
+        const ownerCol = dir === "right" ? Math.min(a.col, b.col) : a.col;
+        const el = this.edgeEl(ownerRow, ownerCol, dir);
+        if (el) el.dataset.state = "path";
+      }
+    }
+
+    this.renderPseudoAndControls(isFinish);
+    this.renderResult(isFinish);
+  }
+
+  private renderPseudoAndControls(isFinish: boolean): void {
+    if (!this.result) return;
+
+    if (this.stepIndex === 0) {
+      this.setPseudoPhase("start");
+    } else if (isFinish) {
+      this.setPseudoPhase("finish");
+    } else {
+      const step = this.result.steps[this.stepIndex - 1];
+      this.setPseudoPhase(step.neighbors.length === 0 ? "loopPop" : "popAndExpand");
+    }
+
+    this.setText('[data-testid="step-counter"]', `Step ${this.stepIndex} of ${this.totalSteps}`);
+    const prevButton = this.query<HTMLButtonElement>('[data-testid="step-prev"]');
+    const nextButton = this.query<HTMLButtonElement>('[data-testid="step-next"]');
+    if (prevButton) prevButton.disabled = this.stepIndex === 0;
+    if (nextButton) nextButton.disabled = isFinish;
+
+    const narration = this.narrateStep(isFinish);
+    this.setText('[data-testid="step-caption"]', narration);
+    this.announce(narration);
+  }
+
+  private narrateStep(isFinish: boolean): string {
+    if (!this.result) return "";
+    if (this.stepIndex === 0) {
+      return `Ready: g[start] = 0. ${this.totalSteps - 1} node${this.totalSteps - 1 === 1 ? "" : "s"} to expand — click Next to begin.`;
+    }
+    if (isFinish) {
+      return this.result.pathLength < 0
+        ? "Finished: the end was never reached — no path exists."
+        : `Finished: reconstructed the path — ${this.result.pathLength} steps.`;
+    }
+
+    const step = this.result.steps[this.stepIndex - 1];
+    const label = (c: Coord) => `(row ${c.row + 1}, col ${c.col + 1})`;
+    const parts = [
+      `Pop ${label(step.coord)}: g=${formatCost(step.g)}, h=${formatCost(step.h)}, f=${formatCost(step.f)}.`,
+    ];
+    if (step.neighbors.length === 0) {
+      parts.push("That's the end — break before expanding neighbors.");
+    } else {
+      for (const neighbor of step.neighbors) {
+        if (neighbor.status === "relaxed") {
+          parts.push(`Relax ${label(neighbor.coord)} to g=${formatCost(neighbor.tentativeG!)}.`);
+        } else if (neighbor.status === "skipped") {
+          parts.push(`Skip ${label(neighbor.coord)} — already reached more cheaply.`);
+        } else if (neighbor.status === "wall") {
+          parts.push(`${label(neighbor.coord)} is a wall.`);
+        } else {
+          parts.push(`${label(neighbor.coord)} already closed.`);
+        }
+      }
+    }
+    return parts.join(" ");
+  }
+
+  private renderResult(isFinish: boolean): void {
+    const banner = this.query<HTMLElement>('[data-testid="result-banner"]');
+    if (!isFinish || !this.result) {
+      if (banner) banner.hidden = true;
+      return;
+    }
+    if (!this.historyRecorded) {
+      this.showResult(this.weightAtRun, this.result, this.optimalLengthAtRun);
+      this.historyRecorded = true;
+    } else if (banner) {
+      banner.hidden = false;
+    }
+  }
+
+  private showResult(weight: number, result: SearchResult, optimalLength: number): void {
     const label = algorithmLabel(weight);
     const banner = this.query<HTMLElement>('[data-testid="result-banner"]');
 
@@ -335,7 +471,6 @@ export class GridController {
         `${label} expanded ${result.expandedCount} cells and never reached the end — this maze blocks it off entirely.`,
       );
       this.appendHistoryRow(weight, label, "—", "—", result.expandedCount);
-      this.announce("No path found — the end is unreachable from here.");
       if (banner) banner.hidden = false;
       return;
     }
@@ -352,11 +487,6 @@ export class GridController {
         : `This path is ${result.pathLength} steps — the shortest possible is ${optimalLength}. ${label} got fooled.`,
     );
     this.appendHistoryRow(weight, label, String(result.pathLength), isOptimal ? "Yes" : "No", result.expandedCount);
-    this.announce(
-      isOptimal
-        ? `Path found: ${result.pathLength} steps, optimal.`
-        : `Path found: ${result.pathLength} steps, not optimal — the shortest possible is ${optimalLength}.`,
-    );
     if (banner) banner.hidden = false;
   }
 
@@ -382,20 +512,6 @@ export class GridController {
   private hideResultBanner(): void {
     const banner = this.query<HTMLElement>('[data-testid="result-banner"]');
     if (banner) banner.hidden = true;
-  }
-
-  private cancelPending(): void {
-    this.runId += 1;
-    for (const handle of this.timeouts) window.clearTimeout(handle);
-    this.timeouts = [];
-  }
-
-  private schedule(delayMs: number, runId: number, fn: () => void): void {
-    const handle = window.setTimeout(() => {
-      if (runId !== this.runId) return;
-      fn();
-    }, delayMs);
-    this.timeouts.push(handle);
   }
 
   private cellEl(coord: Coord): HTMLElement | null {

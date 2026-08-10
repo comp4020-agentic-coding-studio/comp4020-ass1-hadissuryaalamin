@@ -20,10 +20,14 @@ export const PSEUDOCODE_LINES: PseudoLine[] = [
 ];
 
 export const PHASE_LINES = {
+  /** Before the first step: only line 1 (g[start] ← 0) has happened. */
+  start: [1],
+  /** One click = one full pop-and-expand iteration (lines 3-9 together). */
+  popAndExpand: [3, 4, 5, 6, 7, 8, 9],
+  /** The terminal step where current = end: breaks before the neighbor loop. */
   loopPop: [3, 4, 5],
-  loopExpand: [6, 7, 8, 9],
-  reconstruct: [10],
-  done: [11],
+  /** Final step: reconstruct the path and return it. */
+  finish: [10, 11],
 } as const;
 
 export type PseudoPhase = keyof typeof PHASE_LINES;

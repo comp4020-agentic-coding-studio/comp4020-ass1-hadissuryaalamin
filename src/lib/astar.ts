@@ -6,6 +6,27 @@
 
 export type Coord = { row: number; col: number };
 
+export type NeighborStatus = "wall" | "closed" | "relaxed" | "skipped";
+
+/** What happened when the popped node's loop considered one neighbor. */
+export type NeighborTrace = {
+  coord: Coord;
+  status: NeighborStatus;
+  /** g/f the neighbor would get if relaxed; null for "wall" (no cost to relax to). */
+  tentativeG: number | null;
+  f: number | null;
+};
+
+/** One pop-and-expand iteration of the main loop, for the step-by-step walkthrough. */
+export type SearchStep = {
+  coord: Coord;
+  g: number;
+  h: number;
+  f: number;
+  /** Empty when `coord` is the end (the loop breaks before expanding it). */
+  neighbors: NeighborTrace[];
+};
+
 export type SearchResult = {
   /** Cells in the order they were finalized (expanded), for the reveal animation. */
   visitedOrder: Coord[];
@@ -14,6 +35,8 @@ export type SearchResult = {
   expandedCount: number;
   /** Number of steps in `path` (edges, not cells); -1 if unreachable. */
   pathLength: number;
+  /** One entry per popped node, same order as visitedOrder. */
+  steps: SearchStep[];
 };
 
 function key(c: Coord): string {
@@ -88,6 +111,7 @@ export function search(walls: boolean[][], start: Coord, end: Coord, weight: num
   const inBounds = (c: Coord) => c.row >= 0 && c.row < rows && c.col >= 0 && c.col < cols;
 
   const visitedOrder: Coord[] = [];
+  const steps: SearchStep[] = [];
   const bestG = new Map<string, number>();
   const parent = new Map<string, string | null>();
   const closed = new Set<string>();
@@ -111,6 +135,10 @@ export function search(walls: boolean[][], start: Coord, end: Coord, weight: num
     closed.add(currentKey);
     visitedOrder.push(currentCoord);
 
+    const h = manhattan(currentCoord, end);
+    const step: SearchStep = { coord: currentCoord, g: current.g, h, f: current.g + weight * h, neighbors: [] };
+    steps.push(step);
+
     if (currentCoord.row === end.row && currentCoord.col === end.col) {
       reachedEnd = true;
       break;
@@ -118,14 +146,25 @@ export function search(walls: boolean[][], start: Coord, end: Coord, weight: num
 
     for (const dir of DIRECTIONS) {
       const next = { row: current.row + dir.row, col: current.col + dir.col };
-      if (!inBounds(next) || walls[next.row][next.col]) continue;
+      if (!inBounds(next)) continue;
+      if (walls[next.row][next.col]) {
+        step.neighbors.push({ coord: next, status: "wall", tentativeG: null, f: null });
+        continue;
+      }
       const nextKey = key(next);
-      if (closed.has(nextKey)) continue;
+      if (closed.has(nextKey)) {
+        step.neighbors.push({ coord: next, status: "closed", tentativeG: null, f: null });
+        continue;
+      }
       const tentativeG = current.g + 1;
+      const neighborF = tentativeG + weight * manhattan(next, end);
       if (tentativeG < (bestG.get(nextKey) ?? Infinity)) {
         bestG.set(nextKey, tentativeG);
         parent.set(nextKey, currentKey);
-        heap.push({ f: tentativeG + weight * manhattan(next, end), seq: seq++, row: next.row, col: next.col, g: tentativeG });
+        heap.push({ f: neighborF, seq: seq++, row: next.row, col: next.col, g: tentativeG });
+        step.neighbors.push({ coord: next, status: "relaxed", tentativeG, f: neighborF });
+      } else {
+        step.neighbors.push({ coord: next, status: "skipped", tentativeG, f: neighborF });
       }
     }
   }
@@ -145,5 +184,6 @@ export function search(walls: boolean[][], start: Coord, end: Coord, weight: num
     path,
     expandedCount: visitedOrder.length,
     pathLength: reachedEnd ? path.length - 1 : -1,
+    steps,
   };
 }
