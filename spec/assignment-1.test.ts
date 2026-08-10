@@ -65,6 +65,17 @@ describe("core interaction: the weight-dial pathfinder is present in the shipped
     expect(doc?.querySelector('[data-testid="history-table"]')).toBeTruthy();
     expect(doc?.querySelector('[data-testid="history-body"]')).toBeTruthy();
   });
+
+  // The grid renders as a node-edge graph, not a square-cell grid: 160 nodes
+  // (checked above) plus every connecting edge between orthogonal neighbors.
+  it("connects the 16x10 grid of nodes with edges (294 = 10x15 right + 9x16 down)", () => {
+    expect(doc?.querySelectorAll('[data-testid="grid-edge"]').length).toBe(294);
+  });
+
+  it("has a pseudocode panel with one line per step of the search loop", () => {
+    expect(doc?.querySelector('[data-testid="pseudocode-panel"]')).toBeTruthy();
+    expect(doc?.querySelectorAll('[data-testid="pseudo-line"]').length).toBe(11);
+  });
 });
 
 // Spec: "clear distinction between [outcomes]". The distinction this site

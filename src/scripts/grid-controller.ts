@@ -1,7 +1,9 @@
 import { search, type Coord } from "../lib/astar.ts";
 import { createEmptyWalls, createTrapMaze, DEFAULT_END, DEFAULT_START, GRID_COLS, GRID_ROWS } from "../lib/mazes.ts";
+import { PHASE_LINES, type PseudoPhase } from "../lib/pseudocode.ts";
 
 type Mode = "draw" | "erase" | "start" | "end";
+type EdgeDir = "right" | "down";
 
 const MODES: Mode[] = ["draw", "erase", "start", "end"];
 
@@ -191,14 +193,18 @@ export class GridController {
 
     this.cancelPending();
     this.hideResultBanner();
+    this.setPseudoPhase(null);
     this.renderAllCells();
+    this.renderAllEdges();
   }
 
   private clearWalls(): void {
     this.walls = createEmptyWalls();
     this.cancelPending();
     this.hideResultBanner();
+    this.setPseudoPhase(null);
     this.renderAllCells();
+    this.renderAllEdges();
     this.announce("Walls cleared.");
   }
 
@@ -208,7 +214,9 @@ export class GridController {
     this.endCoord = { ...DEFAULT_END };
     this.cancelPending();
     this.hideResultBanner();
+    this.setPseudoPhase(null);
     this.renderAllCells();
+    this.renderAllEdges();
     this.announce("Trap maze loaded. A weight past about 2.6 will find a longer-than-optimal path here.");
   }
 
@@ -230,10 +238,28 @@ export class GridController {
     el.setAttribute("aria-label", `Row ${coord.row + 1}, column ${coord.col + 1}, ${state}`);
   }
 
+  private renderAllEdges(): void {
+    for (let row = 0; row < GRID_ROWS; row++) {
+      for (let col = 0; col < GRID_COLS; col++) {
+        if (col < GRID_COLS - 1) this.renderEdge(row, col, "right", { row, col: col + 1 });
+        if (row < GRID_ROWS - 1) this.renderEdge(row, col, "down", { row: row + 1, col });
+      }
+    }
+  }
+
+  private renderEdge(row: number, col: number, dir: EdgeDir, other: Coord): void {
+    const el = this.edgeEl(row, col, dir);
+    if (!el) return;
+    const closed = this.walls[row][col] || this.walls[other.row][other.col];
+    el.dataset.state = closed ? "closed" : "open";
+  }
+
   private runSearch(): void {
     this.cancelPending();
     this.hideResultBanner();
+    this.setPseudoPhase(null);
     this.renderAllCells();
+    this.renderAllEdges();
 
     const weight = this.currentWeight();
     const result = search(this.walls, this.startCoord, this.endCoord, weight);
@@ -252,10 +278,18 @@ export class GridController {
       this.schedule(visitedDelay * i, runId, () => {
         const el = this.cellEl(coord);
         if (el) el.dataset.state = "visited";
+        this.setPseudoPhase("loopPop");
       });
+      if (visitedDelay > 0) {
+        this.schedule(visitedDelay * i + visitedDelay / 2, runId, () => {
+          this.setPseudoPhase("loopExpand");
+        });
+      }
     });
 
     const pathStartDelay = visitedDelay * visitedToShow.length;
+    this.schedule(pathStartDelay, runId, () => this.setPseudoPhase("reconstruct"));
+
     pathToShow.forEach((coord, i) => {
       this.schedule(pathStartDelay + pathDelay * (i + 1), runId, () => {
         const el = this.cellEl(coord);
@@ -263,8 +297,29 @@ export class GridController {
       });
     });
 
+    const pathEdgeDelay = new Map<string, number>([
+      [`${this.startCoord.row},${this.startCoord.col}`, 0],
+      [`${this.endCoord.row},${this.endCoord.col}`, 0],
+    ]);
+    pathToShow.forEach((coord, i) => {
+      pathEdgeDelay.set(`${coord.row},${coord.col}`, pathStartDelay + pathDelay * (i + 1));
+    });
+    for (let i = 0; i < result.path.length - 1; i++) {
+      const a = result.path[i];
+      const b = result.path[i + 1];
+      const delay = Math.max(pathEdgeDelay.get(`${a.row},${a.col}`) ?? 0, pathEdgeDelay.get(`${b.row},${b.col}`) ?? 0);
+      const dir: EdgeDir = a.row === b.row ? "right" : "down";
+      const ownerRow = dir === "right" ? a.row : Math.min(a.row, b.row);
+      const ownerCol = dir === "right" ? Math.min(a.col, b.col) : a.col;
+      this.schedule(delay, runId, () => {
+        const el = this.edgeEl(ownerRow, ownerCol, dir);
+        if (el) el.dataset.state = "path";
+      });
+    }
+
     const finishDelay = pathStartDelay + pathDelay * (pathToShow.length + 1);
     this.schedule(finishDelay, runId, () => {
+      this.setPseudoPhase("done");
       this.showResult(weight, result, optimalLength);
     });
   }
@@ -345,6 +400,19 @@ export class GridController {
 
   private cellEl(coord: Coord): HTMLElement | null {
     return this.query<HTMLElement>(`[data-testid="grid-cell"][data-row="${coord.row}"][data-col="${coord.col}"]`);
+  }
+
+  private edgeEl(row: number, col: number, dir: EdgeDir): HTMLElement | null {
+    return this.query<HTMLElement>(
+      `[data-testid="grid-edge"][data-row="${row}"][data-col="${col}"][data-dir="${dir}"]`,
+    );
+  }
+
+  private setPseudoPhase(phase: PseudoPhase | null): void {
+    const active = new Set<number>(phase ? PHASE_LINES[phase] : []);
+    this.root.querySelectorAll<HTMLElement>('[data-testid="pseudo-line"]').forEach((el) => {
+      el.dataset.state = active.has(Number(el.dataset.line)) ? "active" : "idle";
+    });
   }
 
   private setText(selector: string, text: string): void {
