@@ -1,85 +1,109 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { ROUNDS } from "../lib/probe-rounds.ts";
+import { DEFAULT_END, DEFAULT_START, GRID_COLS, GRID_ROWS } from "../lib/mazes.ts";
 
-const first = ROUNDS[0];
+const cells: { row: number; col: number; state: "start" | "end" | "empty" }[] = [];
+for (let row = 0; row < GRID_ROWS; row++) {
+  for (let col = 0; col < GRID_COLS; col++) {
+    const isStart = row === DEFAULT_START.row && col === DEFAULT_START.col;
+    const isEnd = row === DEFAULT_END.row && col === DEFAULT_END.col;
+    cells.push({ row, col, state: isStart ? "start" : isEnd ? "end" : "empty" });
+  }
+}
 ---
 
-<Layout title="Tool or Not?">
+<Layout title="One Dial, Three Pathfinders">
   <header>
     <nav aria-label="Primary">
       <a href="./">Home</a>
     </nav>
   </header>
   <main>
-    <h1>Tool or Not?</h1>
+    <h1>One Dial, Three Pathfinders</h1>
     <p class="lede">
-      An LLM only ever generates its next token — but a model can also
-      quietly know things its own words don't say. Read what the model says
-      about itself below, guess whether it actually needs a tool, then watch
-      its hidden state answer for real.
+      Dijkstra's algorithm, A*, and greedy best-first search are the same
+      weighted search at three settings of one dial. Drag the weight slider
+      below and re-run — watch the "shortest path" guarantee hold, hold, then
+      quietly stop holding.
     </p>
 
-    <section data-testid="game">
-      <div class="game-meta">
-        <p data-testid="round-counter">Round 1 of {ROUNDS.length}</p>
-        <p data-testid="score">Score: 0/0 · Streak: 0</p>
-      </div>
-
-      <div class="prompt-card" data-testid="prompt-card">
-        <p class="card-label">The prompt:</p>
-        <p class="card-text" data-role="text">&ldquo;{first.prompt}&rdquo;</p>
-      </div>
-
-      <div class="reasoning-card" data-testid="stated-reasoning">
-        <p class="card-label">The model says:</p>
-        <p class="card-text" data-role="text">&ldquo;{first.statedReasoning}&rdquo;</p>
-      </div>
-
-      <div class="guess-row" role="group" aria-label="Your guess">
-        <p id="guess-prompt">Does this prompt actually need a tool call?</p>
-        <button type="button" class="btn btn-outline" data-testid="guess-yes" aria-describedby="guess-prompt">
-          🔧 Needs a tool
+    <section class="controls" aria-label="Grid controls">
+      <div class="mode-group" role="group" aria-label="Cell mode">
+        <button type="button" class="btn btn-outline" data-testid="mode-draw" aria-pressed="true">
+          ✏️ Draw wall
         </button>
-        <button type="button" class="btn btn-outline" data-testid="guess-no" aria-describedby="guess-prompt">
-          🚫 No tool needed
+        <button type="button" class="btn btn-outline" data-testid="mode-erase" aria-pressed="false">
+          🧹 Erase
+        </button>
+        <button type="button" class="btn btn-outline" data-testid="mode-start" aria-pressed="false">
+          🟢 Set start
+        </button>
+        <button type="button" class="btn btn-outline" data-testid="mode-end" aria-pressed="false">
+          🔴 Set end
         </button>
       </div>
 
-      <div class="model-stack">
-        <ol class="layer-stack" data-testid="layer-stack">
-          <li data-testid="layer-1" data-state="idle"><span>Layer 1</span></li>
-          <li data-testid="layer-2" data-state="idle"><span>Layer 2</span></li>
-          <li data-testid="layer-3" data-state="idle"><span>Layer 3</span></li>
-          <li data-testid="layer-4" data-state="idle">
-            <span>Layer 4</span>
-            <span class="hidden-vector" data-testid="hidden-vector" aria-hidden="true"></span>
-          </li>
-        </ol>
-        <div class="probe-arrow" data-testid="probe-arrow" data-state="idle" aria-hidden="true">
-          &rarr;
-        </div>
-        <div class="probe-box" data-testid="probe-box" data-state="idle">
-          <p class="card-label">Probe</p>
-          <p class="card-text" data-role="verdict">Waiting&hellip;</p>
+      <div class="weight-control">
+        <label for="weight-slider">Heuristic weight</label>
+        <p class="weight-label" data-testid="weight-label">A* (weight 1.0)</p>
+        <input type="range" id="weight-slider" data-testid="weight-slider" min="0" max="3" step="0.1" value="1" />
+        <div class="weight-scale" aria-hidden="true">
+          <span>0 = Dijkstra</span>
+          <span>1 = A*</span>
+          <span>&gt;1 = Greedy</span>
         </div>
       </div>
 
-      <div class="reveal" data-testid="reveal" hidden>
-        <p data-role="verdict-line"></p>
-        <p data-role="match-line"></p>
-        <p data-role="model-line"></p>
-        <button type="button" class="btn btn-fill" data-testid="next-round">Next round &rarr;</button>
+      <div class="action-row">
+        <button type="button" class="btn btn-fill" data-testid="run-button">▶ Run</button>
+        <button type="button" class="btn btn-outline" data-testid="clear-walls-button">Clear walls</button>
+        <button type="button" class="btn btn-outline" data-testid="load-trap-button">Load trap maze</button>
       </div>
-
-      <p class="sr-only" role="status" aria-live="polite" data-testid="game-status"></p>
     </section>
 
-    <section data-testid="summary" hidden>
-      <h2>Session complete</h2>
-      <p data-role="summary-text"></p>
-      <button type="button" class="btn btn-fill" data-testid="play-again">Play again</button>
-    </section>
+    <div
+      class="grid"
+      role="grid"
+      aria-label={`Pathfinding grid, ${GRID_COLS} columns by ${GRID_ROWS} rows`}
+      data-testid="grid"
+      style={`--grid-cols: ${GRID_COLS}; --grid-rows: ${GRID_ROWS};`}
+    >
+      {
+        cells.map((cell) => (
+          <div
+            class="grid-cell"
+            role="gridcell"
+            data-testid="grid-cell"
+            data-row={cell.row}
+            data-col={cell.col}
+            data-state={cell.state}
+            tabindex={cell.row === DEFAULT_START.row && cell.col === DEFAULT_START.col ? 0 : -1}
+            aria-label={`Row ${cell.row + 1}, column ${cell.col + 1}, ${cell.state}`}
+          />
+        ))
+      }
+    </div>
+
+    <p class="sr-only" role="status" aria-live="polite" data-testid="grid-status"></p>
+
+    <div class="result-banner" data-testid="result-banner" hidden>
+      <p class="banner-headline" data-role="headline"></p>
+      <p class="banner-detail" data-role="detail"></p>
+    </div>
+
+    <table class="history-table" data-testid="history-table">
+      <caption>Run history</caption>
+      <thead>
+        <tr>
+          <th scope="col">Weight</th>
+          <th scope="col">Algorithm</th>
+          <th scope="col">Path length</th>
+          <th scope="col">Optimal?</th>
+          <th scope="col">Cells expanded</th>
+        </tr>
+      </thead>
+      <tbody data-testid="history-body"></tbody>
+    </table>
   </main>
   <script src="../scripts/main.ts"></script>
 </Layout>

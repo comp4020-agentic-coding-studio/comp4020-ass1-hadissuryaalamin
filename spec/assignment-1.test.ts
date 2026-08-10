@@ -12,72 +12,76 @@ import { describe, expect, it } from "vitest";
 // not locally. "Static and client-side throughout" holds as long as the
 // invariants in spec/invariants.test.ts stay green.
 //
-// This file was rewritten (not preserved) when the concept pivoted from a
-// rule-based tool-selection pipeline to this hidden-state-probe guessing
-// game — see PLAN.md. It re-derives the contract from the new mechanic
+// This file was rewritten (not preserved) when the concept pivoted a second
+// time, from the hidden-state-probe guessing game to this A* weight-dial
+// visualizer — see PLAN.md. It re-derives the contract from the new mechanic
 // rather than adapting the old assertions.
 
 const distPath = resolve("dist/index.html");
-const doc = existsSync(distPath)
-  ? new JSDOM(readFileSync(distPath, "utf8")).window.document
-  : null;
+const doc = existsSync(distPath) ? new JSDOM(readFileSync(distPath, "utf8")).window.document : null;
 
 // Spec: "the visitor does something that changes what they see — state the
 // core interaction plainly enough to write a test for it." The core
-// interaction here: read a prompt and the model's stated reasoning, guess
-// whether a tool is really needed, then watch the layer-stack animation
-// reveal the hidden-state probe's verdict. This only checks the structural
-// hooks exist in the shipped markup, not the animation itself.
-describe("core interaction: the probe guessing game is present in the shipped page", () => {
+// interaction here: draw walls (or load the trap maze), drag the weight
+// slider, hit Run, and watch the search animate then report whether it found
+// the true shortest path. This only checks the structural hooks exist in the
+// shipped markup, not the animation itself.
+describe("core interaction: the weight-dial pathfinder is present in the shipped page", () => {
   it("built the home page", () => {
     expect(existsSync(distPath), "run `pnpm build` first").toBe(true);
   });
 
-  it("shows the current round's prompt", () => {
-    expect(doc?.querySelector('[data-testid="prompt-card"]')).toBeTruthy();
+  it("renders the full 16x10 grid of cells", () => {
+    expect(doc?.querySelectorAll('[data-testid="grid-cell"]').length).toBe(160);
   });
 
-  it("shows the model's stated reasoning before the visitor guesses", () => {
-    expect(doc?.querySelector('[data-testid="stated-reasoning"]')).toBeTruthy();
+  it("has a mode control for each of draw / erase / set-start / set-end", () => {
+    expect(doc?.querySelector('[data-testid="mode-draw"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="mode-erase"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="mode-start"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="mode-end"]')).toBeTruthy();
   });
 
-  it("has a control to guess 'needs a tool' and a control to guess 'no tool needed'", () => {
-    expect(doc?.querySelector('[data-testid="guess-yes"]')).toBeTruthy();
-    expect(doc?.querySelector('[data-testid="guess-no"]')).toBeTruthy();
+  it("has a heuristic-weight slider spanning Dijkstra (0) through past A* (3)", () => {
+    const slider = doc?.querySelector('[data-testid="weight-slider"]');
+    expect(slider).toBeTruthy();
+    expect(slider?.getAttribute("min")).toBe("0");
+    expect(slider?.getAttribute("max")).toBe("3");
   });
 
-  it("has a layer-stack diagram and a probe box for the reveal", () => {
-    expect(doc?.querySelector('[data-testid="layer-stack"]')).toBeTruthy();
-    expect(doc?.querySelector('[data-testid="probe-box"]')).toBeTruthy();
+  it("has Run, Clear walls, and Load trap maze controls", () => {
+    expect(doc?.querySelector('[data-testid="run-button"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="clear-walls-button"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="load-trap-button"]')).toBeTruthy();
   });
 
-  it("tracks a running score across rounds", () => {
-    expect(doc?.querySelector('[data-testid="score"]')).toBeTruthy();
+  it("has a result banner, initially hidden", () => {
+    const banner = doc?.querySelector('[data-testid="result-banner"]');
+    expect(banner).toBeTruthy();
+    expect(banner?.hasAttribute("hidden")).toBe(true);
   });
 
-  it("has an end-of-session summary, initially hidden", () => {
-    const summary = doc?.querySelector('[data-testid="summary"]');
-    expect(summary).toBeTruthy();
-    expect(summary?.hasAttribute("hidden")).toBe(true);
+  it("has a run-history table for comparing weights on the same maze", () => {
+    expect(doc?.querySelector('[data-testid="history-table"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="history-body"]')).toBeTruthy();
   });
 });
 
-// Spec: "clear distinction between tool call and no tool call". The decision
-// itself is deliberately hand-authored data, not computed — a real
-// hidden-state probe needs a real model, which this static, client-side site
-// doesn't have. Tested as a pure data contract so it survives whatever UI or
-// animation ends up wrapping it.
-describe("round data: the core mechanic", () => {
-  it("ships exactly 8 hand-authored rounds", async () => {
-    const { ROUNDS } = await import("../src/lib/probe-rounds.ts");
-    expect(ROUNDS.length).toBe(8);
-  });
+// Spec: "clear distinction between [outcomes]". The distinction this site
+// demonstrates is optimal vs. not — tested as a pure data contract on the
+// search engine itself, so it survives whatever UI or animation ends up
+// wrapping it. See src/lib/astar.test.ts for the full proof; this only checks
+// that the shipped preset maze is wired to the same result.
+describe("trap maze: the core mechanic", () => {
+  it("the shipped trap-maze preset reproduces the optimal-vs-fooled split", async () => {
+    const { search } = await import("../src/lib/astar.ts");
+    const { createTrapMaze, DEFAULT_START, DEFAULT_END } = await import("../src/lib/mazes.ts");
+    const walls = createTrapMaze();
 
-  it("doesn't strawman the model: some rounds agree with its stated reasoning, some don't", async () => {
-    const { ROUNDS, statedReasoningAgrees } = await import("../src/lib/probe-rounds.ts");
-    const agreeing = ROUNDS.filter(statedReasoningAgrees);
-    const disagreeing = ROUNDS.filter((round) => !statedReasoningAgrees(round));
-    expect(agreeing.length).toBeGreaterThan(0);
-    expect(disagreeing.length).toBeGreaterThan(0);
+    const trueOptimal = search(walls, DEFAULT_START, DEFAULT_END, 1).pathLength;
+    const fooled = search(walls, DEFAULT_START, DEFAULT_END, 3).pathLength;
+
+    expect(trueOptimal).toBeGreaterThan(0);
+    expect(fooled).toBeGreaterThan(trueOptimal);
   });
 });

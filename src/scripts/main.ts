@@ -1,3 +1,3 @@
-import { RoundController } from "./round-controller.ts";
+import { GridController } from "./grid-controller.ts";
 
-new RoundController(document).start();
+new GridController(document).start();
