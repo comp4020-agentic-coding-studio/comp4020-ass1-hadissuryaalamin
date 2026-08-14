@@ -125,6 +125,31 @@ for how each turn was handled, not just what it produced.
    earlier in the project, just never carried over to the sibling element.
    [`d8437ad`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/d8437ad)
 
+8. **A reused-inspiration prompt named the wrong stack, and the fix was to
+   throw away everything about it except the idea.** A slider-component
+   prompt arrived written for React/Tailwind/shadcn — installing `clsx`,
+   `tailwind-merge`, and a component framework this repo doesn't use would
+   have been the literal instruction, and the wrong one. What survived was
+   the visual idea (a track/thumb with a triangle-and-square thumb) and the
+   behaviors it implied, rebuilt as one vanilla `WeightSlider` class wired
+   directly to this page's DOM: `setPointerCapture` drag, click-to-jump,
+   keyboard steps, snap-to-marks, and a synced numeric readout, still
+   driving the same `aria-valuenow`/label the native input used to. Automated
+   checks stayed green throughout, and still missed two real bugs the same
+   way moments 6 and 7 did: a `pnpm check` pass says the markup and types are
+   right, not that the pixels are. Screenshotting the running page at
+   390×844 caught a genuine layout bug — `.weight-control` had no explicit
+   width, so once `.controls` switched to a column layout below 30rem, the
+   box (and the slider track inside it) shrank and grew with the live label
+   text's length *while a drag was in progress*, moving the track out from
+   under the pointer. A second look at those same screenshots, taken
+   immediately after each action, showed the thumb resting short of its
+   target — not a slider bug either, but the 0.12s snap-animation caught
+   mid-transition by a screenshot with no settle delay; re-shooting after a
+   short wait confirmed the underlying value, fill, and thumb position were
+   correct throughout and only the capture timing was off.
+   [`1e7dc05`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/1e7dc05)
+
 ## Before you ship
 
 `pnpm check:evidence` verifies your citations resolve to real commits, that the
