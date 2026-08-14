@@ -2,23 +2,22 @@
 
 ## What I built
 
-"One Dial, Three Pathfinders" — an interactive explainer that argues Dijkstra's
-algorithm, A*, and greedy best-first search aren't three algorithms but one
-weighted search (`f(n) = g(n) + weight × h(n)`) at three settings of a single
-dial, and that turning the dial past "A*" quietly breaks the shortest-path
-guarantee it was giving you. A visitor draws walls on a grid (or loads a
-hand-built "trap maze"), drags a weight slider from 0 to 3, and hits Run: the
-search animates its expansion and final path, then a result banner says
-plainly whether that path was actually shortest — and on the trap maze, past
-roughly weight 2.6, it wasn't. A run-history table lets a visitor compare
-weight against path length and cells expanded across repeated runs on the same
-maze, which is where the speed-vs-correctness trade-off actually becomes
-visible rather than asserted.
+"Dijkstra, Traced" — a single fixed 7-node directed graph walked by plain
+Dijkstra, where every step of the pop-and-relax loop is shown twice at once:
+as animation on the graph (frontier, visited, and shortest-path node/edge
+states) and as the exact line of real Python or Java source that caused it,
+highlighted in a VS-Code-style code panel a visitor can switch between via
+tabs. Run auto-plays all 7 pops; Prev and Next step through the same sequence
+by hand from the same control block. A result banner states the found path
+and its total cost once the walkthrough finishes.
 
-This is the site's second topic. It started as a tool-selection pipeline
-visualizer, became a hidden-state-probe guessing game, and became this after a
-second, unprompted request to change topics entirely — see the moments below
-for how each turn was handled, not just what it produced.
+This is the site's third topic. It started as a tool-selection pipeline
+visualizer, became a hidden-state-probe guessing game, then "One Dial, Three
+Pathfinders" (a weight-dial grid comparing Dijkstra/A*/greedy) after a second
+unprompted request to change topics, and became this after a third: dropping
+the multi-algorithm dial for one algorithm shown against its own real source
+instead of pseudocode. See the moments below for how each turn was handled,
+not just what it produced.
 
 ## The moments that mattered
 
@@ -75,6 +74,24 @@ for how each turn was handled, not just what it produced.
    focus state, not in the controller — and was deleted before this commit,
    since it was a one-off check rather than part of the shipped contract.
    [`9a41362`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/9a41362)
+
+6. **A third pivot, and rebuilding the spec file from the mechanic outward
+   instead of patching it.** "One Dial, Three Pathfinders" gave way to a
+   single fixed directed graph walked by plain Dijkstra, with a real
+   Python/Java source panel line-synced to each pop-and-relax step standing
+   in for pseudocode — the wall-drawing grid, maze presets, weight dial, and
+   run-history table are gone outright, not hidden behind a flag.
+   `spec/assignment-1.test.ts` was rewritten from the new mechanic rather
+   than edited line-by-line, so its assertions (7 nodes, 11 edges, one
+   shared Run/Prev/Next control block, the code panel's line count matching
+   the actual committed source) trace to what the page now does, not what it
+   used to. Manual browser verification against the dev server (not just
+   `pnpm check` going green) caught a real bug this rewrite left behind: the
+   finish-step state replay indexed one entry past the end of the recorded
+   pop sequence, throwing on every completed run and silently keeping the
+   result banner hidden — a build that typechecked, built, and passed all 38
+   tests while the core "here's the shortest path" payoff never rendered.
+   [`a4c3b19`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/a4c3b19)
 
 ## Before you ship
 
