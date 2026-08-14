@@ -1,3 +1,4 @@
+import gsap from "gsap";
 import { manhattan, search, type Coord, type SearchResult } from "../lib/astar.ts";
 import { createEmptyWalls, createTrapMaze, DEFAULT_END, DEFAULT_START, GRID_COLS, GRID_ROWS } from "../lib/mazes.ts";
 import { PHASE_LINES, type PseudoPhase } from "../lib/pseudocode.ts";
@@ -17,6 +18,35 @@ function key(c: Coord): string {
 
 function formatCost(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/** Quick scale-pop for a single node/edge settling into its new state. */
+function popCell(el: HTMLElement, big: boolean): void {
+  gsap.killTweensOf(el);
+  gsap.fromTo(
+    el,
+    { scale: 1 },
+    { scale: big ? 1.24 : 1.14, duration: big ? 0.2 : 0.14, ease: "power1.out", yoyo: true, repeat: 1 },
+  );
+}
+
+/** Staggered pop across the whole reconstructed path, played once on reaching the finish step. */
+function popPath(elements: HTMLElement[]): void {
+  if (!elements.length) return;
+  gsap.killTweensOf(elements);
+  gsap.fromTo(
+    elements,
+    { scale: 1 },
+    { scale: 1.28, duration: 0.22, ease: "back.out(2.5)", yoyo: true, repeat: 1, stagger: 0.04 },
+  );
 }
 
 /** Classifies a weight into the algorithm it currently behaves as. */
@@ -338,6 +368,8 @@ export class GridController {
     const isFinish = this.stepIndex === this.totalSteps;
     const { g, f, popped } = this.computeCostState();
     const pathKeys = new Set(this.result.path.map(key));
+    const reduceMotion = prefersReducedMotion();
+    const finishingCells: HTMLElement[] = [];
 
     for (let row = 0; row < GRID_ROWS; row++) {
       for (let col = 0; col < GRID_COLS; col++) {
@@ -357,7 +389,13 @@ export class GridController {
         else if (popped.has(cellKey)) state = "visited";
         else if (g.has(cellKey)) state = "frontier";
         else state = "empty";
+
+        const previousState = el.dataset.state;
         el.dataset.state = state;
+        if (!reduceMotion && previousState !== state) {
+          if (state === "path") finishingCells.push(el);
+          else popCell(el, state === "visited");
+        }
 
         const gv = g.get(cellKey);
         const fv = f.get(cellKey);
@@ -381,9 +419,13 @@ export class GridController {
         const ownerRow = dir === "right" ? a.row : Math.min(a.row, b.row);
         const ownerCol = dir === "right" ? Math.min(a.col, b.col) : a.col;
         const el = this.edgeEl(ownerRow, ownerCol, dir);
-        if (el) el.dataset.state = "path";
+        if (el) {
+          el.dataset.state = "path";
+          if (!reduceMotion) finishingCells.push(el);
+        }
       }
     }
+    popPath(finishingCells);
 
     this.renderPseudoAndControls(isFinish);
     this.renderResult(isFinish);
@@ -526,8 +568,15 @@ export class GridController {
 
   private setPseudoPhase(phase: PseudoPhase | null): void {
     const active = new Set<number>(phase ? PHASE_LINES[phase] : []);
+    const reduceMotion = prefersReducedMotion();
     this.root.querySelectorAll<HTMLElement>('[data-testid="pseudo-line"]').forEach((el) => {
-      el.dataset.state = active.has(Number(el.dataset.line)) ? "active" : "idle";
+      const wasActive = el.dataset.state === "active";
+      const isActive = active.has(Number(el.dataset.line));
+      el.dataset.state = isActive ? "active" : "idle";
+      if (!reduceMotion && isActive && !wasActive) {
+        gsap.killTweensOf(el);
+        gsap.fromTo(el, { opacity: 0.35 }, { opacity: 1, duration: 0.3, ease: "power1.out" });
+      }
     });
   }
 
