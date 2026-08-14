@@ -102,6 +102,29 @@ for how each turn was handled, not just what it produced.
    [`1250d66`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/1250d66),
    [`eb123fd`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/eb123fd)
 
+7. **A terse three-part ask ("run automatic", "background theme math", "more
+   stylish") got clarified before any CSS was written, not guessed at.** Each
+   phrase had more than one reasonable reading — auto-run could have meant
+   re-running the search on every input change instead of auto-advancing the
+   walkthrough; "theme math" could have meant a light/dark toggle; "stylish"
+   could have meant gradients and motion instead of a quieter polish pass.
+   Getting any of the three wrong would mean redoing a styling-heavy change,
+   so all three went to `AskUserQuestion` up front instead of being resolved
+   by assumption. The build that followed — a Play/Pause auto-advance next
+   to Prev/Next, a decorative dot-grid + `f(n)=g+weight·h` watermark behind
+   the page, and a shadow/typography/press-state pass — then hit the same
+   lesson as moment 6 from a different angle: `pnpm check` and a jsdom test
+   asserting `hasAttribute("hidden")` both stayed green through a real bug,
+   because neither executes real CSS cascade. `.step-controls` set
+   `display: flex` unconditionally, and an author-origin rule overrides the
+   browser's default `[hidden] { display: none; }` regardless of selector
+   specificity — so the walkthrough controls sat visible on every page load,
+   before Run was ever clicked. A Playwright screenshot of the actual
+   rendered baseline is what caught it, not a passing test suite; the fix
+   was the same one-line override already applied to `.graph[hidden]`
+   earlier in the project, just never carried over to the sibling element.
+   [`d8437ad`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/d8437ad)
+
 ## Before you ship
 
 `pnpm check:evidence` verifies your citations resolve to real commits, that the
