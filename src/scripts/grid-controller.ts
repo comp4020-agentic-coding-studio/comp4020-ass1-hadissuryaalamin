@@ -465,20 +465,23 @@ export class GridController {
     const banner = this.query<HTMLElement>('[data-testid="result-banner"]');
 
     if (result.pathLength < 0) {
-      this.setText('[data-testid="result-banner"] [data-role="headline"]', "No path found.");
+      this.setBannerStatus("critical");
+      this.setText('[data-testid="result-banner"] [data-role="headline"]', "✕ No path found.");
       this.setText(
         '[data-testid="result-banner"] [data-role="detail"]',
         `${label} expanded ${result.expandedCount} cells and never reached the end — this maze blocks it off entirely.`,
       );
-      this.appendHistoryRow(weight, label, "—", "—", result.expandedCount);
+      this.appendHistoryRow(weight, label, "—", "critical", "—", result.expandedCount);
       if (banner) banner.hidden = false;
       return;
     }
 
     const isOptimal = result.pathLength === optimalLength;
+    const status = isOptimal ? "good" : "warning";
+    this.setBannerStatus(status);
     this.setText(
       '[data-testid="result-banner"] [data-role="headline"]',
-      `${label}: ${result.pathLength} steps, ${result.expandedCount} cells expanded.`,
+      `${isOptimal ? "✓" : "⚠"} ${label}: ${result.pathLength} steps, ${result.expandedCount} cells expanded.`,
     );
     this.setText(
       '[data-testid="result-banner"] [data-role="detail"]',
@@ -486,26 +489,40 @@ export class GridController {
         ? "That's the shortest possible path for this maze."
         : `This path is ${result.pathLength} steps — the shortest possible is ${optimalLength}. ${label} got fooled.`,
     );
-    this.appendHistoryRow(weight, label, String(result.pathLength), isOptimal ? "Yes" : "No", result.expandedCount);
+    this.appendHistoryRow(weight, label, String(result.pathLength), status, isOptimal ? "Yes" : "No", result.expandedCount);
     if (banner) banner.hidden = false;
+  }
+
+  private setBannerStatus(status: "good" | "warning" | "critical"): void {
+    const banner = this.query<HTMLElement>('[data-testid="result-banner"]');
+    if (banner) banner.dataset.status = status;
   }
 
   private appendHistoryRow(
     weight: number,
     algorithm: string,
     pathLength: string,
-    optimal: string,
+    status: "good" | "warning" | "critical",
+    optimalLabel: string,
     expanded: number,
   ): void {
     const body = this.query<HTMLTableSectionElement>('[data-testid="history-body"]');
     if (!body) return;
     this.historyCount += 1;
     const row = document.createElement("tr");
-    for (const text of [weight.toFixed(1), algorithm, pathLength, optimal, String(expanded)]) {
+    for (const text of [weight.toFixed(1), algorithm, pathLength]) {
       const cell = document.createElement("td");
       cell.textContent = text;
       row.appendChild(cell);
     }
+    const icon = status === "good" ? "✓" : status === "warning" ? "⚠" : "✕";
+    const optimalCell = document.createElement("td");
+    optimalCell.dataset.status = status;
+    optimalCell.textContent = `${icon} ${optimalLabel}`;
+    row.appendChild(optimalCell);
+    const expandedCell = document.createElement("td");
+    expandedCell.textContent = String(expanded);
+    row.appendChild(expandedCell);
     body.appendChild(row);
   }
 

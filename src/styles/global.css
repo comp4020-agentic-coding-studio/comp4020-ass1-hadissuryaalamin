@@ -11,13 +11,16 @@
   --color-start-soft: #f0fdf4;
   --color-end: #db2777;
   --color-end-soft: #fdf2f8;
-  --color-visited: #93c5fd;
-  --color-visited-soft: #eff6ff;
-  --color-frontier: #a855f7;
-  --color-frontier-soft: #faf5ff;
-  --color-path: #f59e0b;
+  --color-visited: #2a78d6;
+  --color-visited-soft: #cde2fb;
+  --color-frontier: #4a3aa7;
+  --color-frontier-soft: #ede9f7;
+  --color-path: #eb6834;
   --color-correct: #16a34a;
   --color-incorrect: #d6472b;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
 }
 
 * {
@@ -234,6 +237,7 @@ a {
 .grid-cell[data-state="path"] {
   background: var(--color-path);
   border-color: var(--color-path);
+  border-width: 3px;
 }
 
 .grid-edge {
@@ -343,6 +347,23 @@ a {
   margin-block-end: 1.5rem;
 }
 
+/* Status colors are a separate fixed channel from the graph's categorical
+   colors above — reserved meaning, never reused for series identity, and
+   always paired with the icon glyph already in the headline text so the
+   outcome never rides on the border color alone. */
+
+.result-banner[data-status="good"] {
+  border-left-color: var(--status-good);
+}
+
+.result-banner[data-status="warning"] {
+  border-left-color: var(--status-warning);
+}
+
+.result-banner[data-status="critical"] {
+  border-left-color: var(--status-critical);
+}
+
 .banner-headline {
   margin: 0 0 0.3rem;
   font-size: 1.15rem;
@@ -380,6 +401,24 @@ a {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+/* "Optimal?" cell — same status channel as the result banner, icon + text
+   label carry the meaning; the wash is a scan aid, not the only signal. */
+
+.history-table td[data-status="good"] {
+  border-left: 3px solid var(--status-good);
+  background: color-mix(in srgb, var(--status-good) 12%, transparent);
+}
+
+.history-table td[data-status="warning"] {
+  border-left: 3px solid var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning) 18%, transparent);
+}
+
+.history-table td[data-status="critical"] {
+  border-left: 3px solid var(--status-critical);
+  background: color-mix(in srgb, var(--status-critical) 12%, transparent);
 }
 
 @media (width <= 60rem) {
