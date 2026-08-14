@@ -6,14 +6,18 @@
 algorithm, A*, and greedy best-first search aren't three algorithms but one
 weighted search (`f(n) = g(n) + weight × h(n)`) at three settings of a single
 dial, and that turning the dial past "A*" quietly breaks the shortest-path
-guarantee it was giving you. A visitor draws walls on a grid (or loads a
-hand-built "trap maze"), drags a weight slider from 0 to 3, and hits Run: the
-search animates its expansion and final path, then a result banner says
-plainly whether that path was actually shortest — and on the trap maze, past
-roughly weight 2.6, it wasn't. A run-history table lets a visitor compare
-weight against path length and cells expanded across repeated runs on the same
-maze, which is where the speed-vs-correctness trade-off actually becomes
-visible rather than asserted.
+guarantee it was giving you. A visitor blocks or opens edges on a free-form
+weighted graph (or loads a hand-built "trap graph"), drags a weight slider
+from 0 to 3, and hits Run: the search animates its expansion and final path
+node by node, then a result banner says plainly whether that path was
+actually the lowest-cost one — and on the trap graph, past weight 1, it
+wasn't. A run-history table lets a visitor compare weight against path cost
+and nodes expanded across repeated runs on the same graph, which is where the
+speed-vs-correctness trade-off actually becomes visible rather than asserted.
+
+The visualizer started as a fixed 16×10 grid with unit-cost 4-directional
+movement, and was rebuilt into the free-form node/edge graph described above
+after a reference image made the grid's limits obvious — see moment 6.
 
 This is the site's second topic. It started as a tool-selection pipeline
 visualizer, became a hidden-state-probe guessing game, and became this after a
@@ -75,6 +79,28 @@ for how each turn was handled, not just what it produced.
    focus state, not in the controller — and was deleted before this commit,
    since it was a one-off check rather than part of the shipped contract.
    [`9a41362`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/9a41362)
+
+6. **A reference image triggered a full redesign, not a reskin — and green
+   checks after the rebuild still weren't the finish line.** Shown
+   `graph.png`, a free-form weighted graph with labeled nodes and arrowed,
+   weighted edges, the honest reading was that the grid itself — 4-directional
+   unit-cost movement on a fixed rectangle — was the wrong shape for the
+   claim, not just wrongly colored. Two scope questions (undirected edges?
+   drag-authoring or clicks only?) got asked and answered before any code
+   changed, and the rewrite touched the data model, the search algorithm, the
+   renderer (CSS-grid → SVG), the controller, and the spec's own hardcoded
+   grid-shape assertions in lockstep. `pnpm check` went green after each
+   piece, but actually opening the running dev server with Playwright at
+   both marking viewports — clicking modes, blocking edges, stepping through
+   a run to its finish — surfaced four real bugs no type check or unit test
+   touched: a click target silently shadowed by the visible line drawn on
+   top of it, an off-by-one crash on the walkthrough's last step, a stray
+   focus outline, and a `min-width` that clipped the graph's rightmost nodes
+   at 1920×1080 and hid half the graph behind blank space at 390×844. Green
+   `pnpm check` meant the markup was correct; only looking at the rendered
+   page caught that the layout wasn't.
+   [`1250d66`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/1250d66),
+   [`eb123fd`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/eb123fd)
 
 ## Before you ship
 
