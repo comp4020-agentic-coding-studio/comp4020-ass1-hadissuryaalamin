@@ -150,6 +150,35 @@ for how each turn was handled, not just what it produced.
    correct throughout and only the capture timing was off.
    [`1e7dc05`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/1e7dc05)
 
+9. **"I don't really like my site design" plus a pasted reference component
+   got split into two separate asks, and the color half turned out to need
+   its own search algorithm, not more manual tuning.** The reference was a
+   `dev-tool-landing-page.tsx` React/Tailwind/shadcn component; its actual
+   content (generic component-library marketing copy) had nothing to do with
+   this site, so — same call as moment 8 — only the visual idea carried
+   over: near-black surfaces, bordered rounded-xl cards, a subtle inset-
+   highlight glow. The toggle was a second, independent ask (light/dark,
+   with `prefers-color-scheme` detection and persistence), not implied by
+   the restyle. The harder part was the graph's dark categorical palette:
+   the dataviz skill is explicit that a dark theme needs its own validated
+   colors, not an automatic inversion of the light ones, so each candidate
+   set went through `validate_palette.js --pairs all` (all-pairs, not just
+   adjacent, since graph states render simultaneously). Two hand-picked
+   candidate sets both failed — fixing one colliding pair (violet vs. blue
+   under deuteranopia) kept surfacing a different one (magenta vs. violet,
+   then orange vs. green, then magenta vs. green) every time a hue got
+   nudged by hand. That's whack-a-mole, not progress, so the fix was to stop
+   guessing and write a small coordinate-ascent script reimplementing the
+   validator's own OKLab/CVD math, holding four hues fixed and grid-searching
+   the fifth for the one that clears every check with the most margin,
+   repeating until the whole set converged. It found
+   `#009d59 #b8007a #0091d7 #703dd8 #944e00` in six rounds — a set no amount
+   of further hand-tuning had reached — and a Playwright screenshot of an
+   actual animated run (not just the validator's numeric pass) confirmed the
+   somewhat muted `#944e00` still reads clearly as its own hue against
+   green/magenta/blue, not muddy, on the real dark surface.
+   [`83dcd03`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-hadissuryaalamin/commit/83dcd03)
+
 ## Before you ship
 
 `pnpm check:evidence` verifies your citations resolve to real commits, that the
