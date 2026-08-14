@@ -373,6 +373,8 @@ export class GraphController {
   private showStepControls(show: boolean): void {
     const el = this.query<HTMLElement>('[data-testid="step-controls"]');
     if (el) el.hidden = !show;
+    const autoButton = this.query<HTMLButtonElement>('[data-testid="step-autoplay"]');
+    if (autoButton) autoButton.disabled = !show;
   }
 
   /** Replays steps[0..stepIndex) to derive every node's currently-known g/f and which nodes are settled. */
