@@ -5,6 +5,8 @@
   --color-muted: #5b6270;
   --color-border: #d7dbe3;
   --color-link: #0b5fff;
+  --color-link-soft: #eaf1ff;
+  --color-link-hover: #084bcc;
   --color-focus-ring: #d6472b;
   --color-wall: #2b2f38;
   --color-start: #16a34a;
@@ -21,6 +23,39 @@
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-critical: #d03b3b;
+  --card-shadow: 0 1px 3px rgb(0 0 0 / 6%), 0 1px 2px rgb(0 0 0 / 4%);
+}
+
+/* Dark theme: its own steps from the same hue identities (green=start,
+   pink=end, blue=visited, purple=frontier, orange=path), independently
+   validated against this surface with scripts/validate_palette.js — not a
+   mechanical inversion of the light tokens above. */
+:root[data-theme="dark"] {
+  --color-bg: #0a0a0c;
+  --color-surface: #16161a;
+  --color-text: #f2f2f5;
+  --color-muted: #9a9ba6;
+  --color-border: #2b2c33;
+  --color-link: #6ea8ff;
+  --color-link-soft: #17233a;
+  --color-link-hover: #8fbcff;
+  --color-focus-ring: #ff6b52;
+  --color-wall: #6e7079;
+  --color-start: #009d59;
+  --color-start-soft: color-mix(in srgb, var(--color-start) 20%, var(--color-surface));
+  --color-end: #b8007a;
+  --color-end-soft: color-mix(in srgb, var(--color-end) 20%, var(--color-surface));
+  --color-visited: #0091d7;
+  --color-visited-soft: color-mix(in srgb, var(--color-visited) 20%, var(--color-surface));
+  --color-frontier: #703dd8;
+  --color-frontier-soft: color-mix(in srgb, var(--color-frontier) 20%, var(--color-surface));
+  --color-path: #944e00;
+  --color-correct: #009d59;
+  --color-incorrect: #ff6b52;
+  --status-good: #0ca30c;
+  --status-warning: #c2780a;
+  --status-critical: #d03b3b;
+  --card-shadow: 0 1px 0 0 rgb(255 255 255 / 6%) inset, 0 8px 24px rgb(0 0 0 / 50%);
 }
 
 * {
@@ -40,9 +75,25 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cdefs%3E%3Cpattern id='dot' width='20' height='20' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='1.5' cy='1.5' r='1.1' fill='%23dfe2e8'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='200' height='200' fill='url(%23dot)'/%3E%3Ctext x='6' y='104' font-family='ui-monospace,Consolas,monospace' font-size='15' fill='%23e0e3e9' transform='rotate(-9 6 104)'%3Ef = g + h%3C/text%3E%3C/svg%3E");
 }
 
+/* A data URI can't read a CSS custom property, so the watermark's own colors
+   (barely-there dots/text a shade off the page background) need a second,
+   separately-tuned copy for the dark surface rather than inheriting one. */
+[data-theme="dark"] body {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cdefs%3E%3Cpattern id='dot' width='20' height='20' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='1.5' cy='1.5' r='1.1' fill='%23202126'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='200' height='200' fill='url(%23dot)'/%3E%3Ctext x='6' y='104' font-family='ui-monospace,Consolas,monospace' font-size='15' fill='%231e1f24' transform='rotate(-9 6 104)'%3Ef = g + h%3C/text%3E%3C/svg%3E");
+}
+
 main {
   max-width: 64rem;
   margin: 0 auto;
+}
+
+header {
+  max-width: 64rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 h1 {
@@ -91,7 +142,7 @@ a {
   padding: 0.7rem 1.2rem;
   margin-inline-end: 0.6rem;
   margin-block-end: 0.6rem;
-  border-radius: 0.6rem;
+  border-radius: 0.75rem;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
@@ -119,7 +170,7 @@ a {
 
 .btn-outline[aria-pressed="true"] {
   border-color: var(--color-link);
-  background: #eaf1ff;
+  background: var(--color-link-soft);
   color: var(--color-link);
 }
 
@@ -130,7 +181,13 @@ a {
 }
 
 .btn-fill:hover {
-  background: #084bcc;
+  background: var(--color-link-hover);
+}
+
+/* dark palette's --color-link is tuned light for on-dark legibility as text,
+   which would fail contrast under this button's white label */
+[data-theme="dark"] .btn-fill {
+  color: #0a0a0c;
 }
 
 /* Controls */
@@ -143,9 +200,9 @@ a {
   margin-block: 1.5rem;
   padding: 1rem 1.25rem;
   border: 2px solid var(--color-border);
-  border-radius: 0.9rem;
+  border-radius: 1rem;
   background: var(--color-surface);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 6%), 0 1px 2px rgb(0 0 0 / 4%);
+  box-shadow: var(--card-shadow);
 }
 
 .mode-group,
@@ -270,7 +327,7 @@ a {
   top: 0.3rem;
   bottom: 0.3rem;
   width: 2px;
-  background: rgb(255 255 255 / 70%);
+  background: color-mix(in srgb, var(--color-text) 70%, transparent);
   transform: translateX(-1px);
   pointer-events: none;
 }
@@ -327,11 +384,11 @@ a {
   max-width: 40rem;
   margin-block: 1.5rem;
   border: 2px solid var(--color-border);
-  border-radius: 0.6rem;
+  border-radius: 1rem;
   padding: 1rem;
   background: var(--color-bg);
   overflow-x: auto;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 6%), 0 1px 2px rgb(0 0 0 / 4%);
+  box-shadow: var(--card-shadow);
 }
 
 .graph {
@@ -442,9 +499,9 @@ a {
   margin-block: 1.5rem;
   padding: 1rem 1.25rem;
   border: 2px solid var(--color-border);
-  border-radius: 0.6rem;
+  border-radius: 1rem;
   background: var(--color-surface);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 6%), 0 1px 2px rgb(0 0 0 / 4%);
+  box-shadow: var(--card-shadow);
 }
 
 .pseudocode-panel h2 {
@@ -487,9 +544,9 @@ a {
   margin-block-end: 1.5rem;
   padding: 1rem 1.25rem;
   border: 2px solid var(--color-border);
-  border-radius: 0.9rem;
+  border-radius: 1rem;
   background: var(--color-surface);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 6%), 0 1px 2px rgb(0 0 0 / 4%);
+  box-shadow: var(--card-shadow);
 }
 
 /* An unconditional display:flex above always beats the UA [hidden] rule,
@@ -517,11 +574,11 @@ a {
 .result-banner {
   border: 2px solid var(--color-border);
   border-left: 6px solid var(--color-link);
-  border-radius: 0.9rem;
+  border-radius: 1rem;
   background: var(--color-surface);
   padding: 1.1rem 1.4rem;
   margin-block-end: 1.5rem;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 6%), 0 1px 2px rgb(0 0 0 / 4%);
+  box-shadow: var(--card-shadow);
 }
 
 /* Status colors are a separate fixed channel from the graph's categorical
