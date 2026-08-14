@@ -1,204 +1,169 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { DEFAULT_END, DEFAULT_START, GRID_COLS, GRID_ROWS } from "../lib/mazes.ts";
-import { PSEUDOCODE_LINES } from "../lib/pseudocode.ts";
+import { CODE_SOURCE, type CodeLang } from "../lib/code-samples.ts";
+import { GRAPH_EDGES, GRAPH_NODES, GRAPH_VIEWBOX } from "../lib/example-graph.ts";
+import { highlightCode } from "../lib/highlight.ts";
 
-const cells: { row: number; col: number; state: "start" | "end" | "empty" }[] = [];
-for (let row = 0; row < GRID_ROWS; row++) {
-  for (let col = 0; col < GRID_COLS; col++) {
-    const isStart = row === DEFAULT_START.row && col === DEFAULT_START.col;
-    const isEnd = row === DEFAULT_END.row && col === DEFAULT_END.col;
-    cells.push({ row, col, state: isStart ? "start" : isEnd ? "end" : "empty" });
-  }
-}
+// Node radius in viewBox units — edges are trimmed to stop at the circle's
+// edge (not its center) so the arrowhead lands right at the boundary.
+const NODE_RADIUS = 28;
+const nodeById = new Map(GRAPH_NODES.map((node) => [node.id, node]));
 
-// Interleaved grid: node tracks (circles) alternate with thin edge tracks, so
-// a node's (row, col) and an edge's endpoints map straight to 1-based grid
-// lines with no JS geometry. aspect-ratio uses the unit-weighted totals (not
-// the raw track counts) so each node track comes out square, i.e. a circle.
-const NODE_UNIT = 3;
-const EDGE_UNIT = 1;
-// Floors on each track so a node never shrinks below legible size for its
-// per-node cost label — on a narrow viewport the grid overflows its box
-// instead, and `.grid { overflow-x: auto }` turns that into a scrollbar.
-const NODE_MIN = "1.6rem";
-const EDGE_MIN = "0.4rem";
-const trackTemplate = (count: number) =>
-  Array.from(
-    { length: count * 2 - 1 },
-    (_, i) => (i % 2 === 0 ? `minmax(${NODE_MIN}, ${NODE_UNIT}fr)` : `minmax(${EDGE_MIN}, ${EDGE_UNIT}fr)`),
-  ).join(" ");
-const totalUnits = (count: number) => count * NODE_UNIT + (count - 1) * EDGE_UNIT;
+const edgeRenders = GRAPH_EDGES.map((edge) => {
+  const from = nodeById.get(edge.from)!;
+  const to = nodeById.get(edge.to)!;
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const dist = Math.hypot(dx, dy);
+  const ux = dx / dist;
+  const uy = dy / dist;
+  const x1 = from.x + ux * NODE_RADIUS;
+  const y1 = from.y + uy * NODE_RADIUS;
+  const x2 = to.x - ux * NODE_RADIUS;
+  const y2 = to.y - uy * NODE_RADIUS;
+  const midX = (x1 + x2) / 2;
+  const midY = (y1 + y2) / 2;
+  const labelOffset = 16;
+  return { edge, x1, y1, x2, y2, labelX: midX + -uy * labelOffset, labelY: midY + ux * labelOffset };
+});
 
-type Edge = { row: number; col: number; dir: "right" | "down" };
-const rightEdges: Edge[] = [];
-const downEdges: Edge[] = [];
-for (let row = 0; row < GRID_ROWS; row++) {
-  for (let col = 0; col < GRID_COLS; col++) {
-    if (col < GRID_COLS - 1) rightEdges.push({ row, col, dir: "right" });
-    if (row < GRID_ROWS - 1) downEdges.push({ row, col, dir: "down" });
-  }
-}
-
-const gridStyle = [
-  `grid-template-columns: ${trackTemplate(GRID_COLS)}`,
-  `grid-template-rows: ${trackTemplate(GRID_ROWS)}`,
-  `aspect-ratio: ${totalUnits(GRID_COLS)} / ${totalUnits(GRID_ROWS)}`,
-].join("; ");
+const LANGS: { id: CodeLang; label: string }[] = [
+  { id: "python", label: "Python" },
+  { id: "java", label: "Java" },
+];
+const codeHtml: Record<CodeLang, string> = {
+  python: await highlightCode(CODE_SOURCE.python, "python"),
+  java: await highlightCode(CODE_SOURCE.java, "java"),
+};
 ---
 
-<Layout title="One Dial, Three Pathfinders">
+<Layout title="Dijkstra, Traced">
   <header>
     <nav aria-label="Primary">
       <a href="./">Home</a>
     </nav>
   </header>
   <main>
-    <h1>One Dial, Three Pathfinders</h1>
+    <h1>Dijkstra, Traced</h1>
     <p class="lede">
-      Dijkstra's algorithm, A*, and greedy best-first search are the same
-      weighted search at three settings of one dial. Drag the weight slider
-      below and re-run — watch the "shortest path" guarantee hold, hold, then
-      quietly stop holding.
+      One fixed graph, one algorithm. Press Run and watch the pop-and-relax
+      loop drive the animation, the narration, and the exact line of real
+      Python or Java that caused it — or step through it yourself with Prev
+      and Next.
     </p>
 
-    <section class="controls" aria-label="Grid controls">
-      <div class="mode-group" role="group" aria-label="Cell mode">
-        <button type="button" class="btn btn-outline" data-testid="mode-draw" aria-pressed="true">
-          ✏️ Draw wall
-        </button>
-        <button type="button" class="btn btn-outline" data-testid="mode-erase" aria-pressed="false">
-          🧹 Erase
-        </button>
-        <button type="button" class="btn btn-outline" data-testid="mode-start" aria-pressed="false">
-          🟢 Set start
-        </button>
-        <button type="button" class="btn btn-outline" data-testid="mode-end" aria-pressed="false">
-          🔴 Set end
-        </button>
-      </div>
-
-      <div class="weight-control">
-        <label for="weight-slider">Heuristic weight</label>
-        <p class="weight-label" data-testid="weight-label">A* (weight 1.0)</p>
-        <input type="range" id="weight-slider" data-testid="weight-slider" min="0" max="3" step="0.1" value="1" />
-        <div class="weight-scale" aria-hidden="true">
-          <span>0 = Dijkstra</span>
-          <span>1 = A*</span>
-          <span>&gt;1 = Greedy</span>
-        </div>
-      </div>
-
+    <section class="controls" data-testid="controls" aria-label="Walkthrough controls">
       <div class="action-row">
         <button type="button" class="btn btn-fill" data-testid="run-button">▶ Run</button>
-        <button type="button" class="btn btn-outline" data-testid="clear-walls-button">Clear walls</button>
-        <button type="button" class="btn btn-outline" data-testid="load-trap-button">Load trap maze</button>
+        <button type="button" class="btn btn-outline" data-testid="step-prev" disabled>⟨ Prev</button>
+        <button type="button" class="btn btn-outline" data-testid="step-next">Next ⟩</button>
       </div>
+      <p class="step-counter" data-testid="step-counter"></p>
+      <p class="step-caption" data-testid="step-caption"></p>
     </section>
 
     <ul class="legend" aria-hidden="true">
-      <li><span class="swatch swatch-wall"></span> Wall</li>
-      <li><span class="swatch swatch-start"></span> Start</li>
-      <li><span class="swatch swatch-end"></span> End</li>
       <li><span class="swatch swatch-frontier"></span> Frontier</li>
       <li><span class="swatch swatch-visited"></span> Visited</li>
-      <li><span class="swatch swatch-path"></span> Path</li>
+      <li><span class="swatch swatch-path"></span> Shortest path</li>
     </ul>
 
     <div class="visualization">
-      <div
-        class="grid"
-        role="grid"
-        aria-label={`Pathfinding graph, ${GRID_COLS} columns by ${GRID_ROWS} rows`}
-        data-testid="grid"
-        style={gridStyle}
-      >
-        {
-          cells.map((cell) => (
-            <div
-              class="grid-cell"
-              role="gridcell"
-              data-testid="grid-cell"
-              data-row={cell.row}
-              data-col={cell.col}
-              data-state={cell.state}
-              tabindex={cell.row === DEFAULT_START.row && cell.col === DEFAULT_START.col ? 0 : -1}
-              aria-label={`Row ${cell.row + 1}, column ${cell.col + 1}, ${cell.state}`}
-              style={`grid-column: ${cell.col * 2 + 1}; grid-row: ${cell.row * 2 + 1};`}
-            />
-          ))
-        }
-        {
-          rightEdges.map((edge) => (
-            <div
-              class="grid-edge"
-              data-testid="grid-edge"
-              data-row={edge.row}
-              data-col={edge.col}
-              data-dir="right"
-              data-state="open"
-              aria-hidden="true"
-              style={`grid-column: ${edge.col * 2 + 2}; grid-row: ${edge.row * 2 + 1};`}
-            />
-          ))
-        }
-        {
-          downEdges.map((edge) => (
-            <div
-              class="grid-edge"
-              data-testid="grid-edge"
-              data-row={edge.row}
-              data-col={edge.col}
-              data-dir="down"
-              data-state="open"
-              aria-hidden="true"
-              style={`grid-column: ${edge.col * 2 + 1}; grid-row: ${edge.row * 2 + 2};`}
-            />
-          ))
-        }
-      </div>
+      <figure class="graph-figure">
+        <svg
+          class="graph"
+          data-testid="graph"
+          viewBox={`0 0 ${GRAPH_VIEWBOX.width} ${GRAPH_VIEWBOX.height}`}
+          role="img"
+          aria-label={`Directed graph with ${GRAPH_NODES.length} nodes and ${GRAPH_EDGES.length} weighted edges, from S (start) to T (end)`}
+        >
+          <defs>
+            <marker
+              id="arrow-idle"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--panel-line)" />
+            </marker>
+            <marker
+              id="arrow-path"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--redline)" />
+            </marker>
+          </defs>
 
-      <aside class="pseudocode-panel" data-testid="pseudocode-panel" aria-label="Algorithm pseudocode">
-        <h2>Pseudocode</h2>
-        <ol>
           {
-            PSEUDOCODE_LINES.map((line) => (
-              <li data-testid="pseudo-line" data-line={line.line} data-state="idle">
-                {line.text}
-              </li>
+            edgeRenders.map(({ edge, x1, y1, x2, y2, labelX, labelY }) => (
+              <g class="graph-edge" data-testid="graph-edge" data-edge-id={edge.id} data-state="idle">
+                <line x1={x1} y1={y1} x2={x2} y2={y2} marker-end="url(#arrow-idle)" />
+                <text x={labelX} y={labelY} class="edge-weight">
+                  {edge.weight}
+                </text>
+              </g>
             ))
           }
-        </ol>
+
+          {
+            GRAPH_NODES.map((node) => (
+              <g
+                class="graph-node"
+                data-testid="graph-node"
+                data-node-id={node.id}
+                data-state="idle"
+                transform={`translate(${node.x} ${node.y})`}
+              >
+                <circle r={NODE_RADIUS} />
+                <text dominant-baseline="middle" text-anchor="middle">
+                  {node.label}
+                </text>
+              </g>
+            ))
+          }
+        </svg>
+        <figcaption class="graph-caption">S = start &middot; T = end</figcaption>
+      </figure>
+
+      <aside class="code-panel" data-testid="code-panel" aria-label="Dijkstra source code">
+        <h2>Source</h2>
+        <div class="code-tabs" role="group" aria-label="Code language">
+          {
+            LANGS.map(({ id, label }, i) => (
+              <button
+                type="button"
+                class="btn btn-outline"
+                data-testid={`code-tab-${id}`}
+                data-lang={id}
+                aria-pressed={i === 0 ? "true" : "false"}
+              >
+                {label}
+              </button>
+            ))
+          }
+        </div>
+        {
+          LANGS.map(({ id }, i) => (
+            <div class="code-block" data-testid="code-block" data-lang={id} hidden={i !== 0} set:html={codeHtml[id]} />
+          ))
+        }
       </aside>
     </div>
 
-    <div class="step-controls" data-testid="step-controls" hidden>
-      <button type="button" class="btn btn-outline" data-testid="step-prev" disabled>⟨ Prev</button>
-      <p class="step-counter" data-testid="step-counter"></p>
-      <button type="button" class="btn btn-outline" data-testid="step-next">Next ⟩</button>
-      <p class="step-caption" data-testid="step-caption"></p>
-    </div>
-
-    <p class="sr-only" role="status" aria-live="polite" data-testid="grid-status"></p>
+    <p class="sr-only" role="status" aria-live="polite" data-testid="graph-status"></p>
 
     <div class="result-banner" data-testid="result-banner" hidden>
       <p class="banner-headline" data-role="headline"></p>
       <p class="banner-detail" data-role="detail"></p>
     </div>
-
-    <table class="history-table" data-testid="history-table">
-      <caption>Run history</caption>
-      <thead>
-        <tr>
-          <th scope="col">Weight</th>
-          <th scope="col">Algorithm</th>
-          <th scope="col">Path length</th>
-          <th scope="col">Optimal?</th>
-          <th scope="col">Cells expanded</th>
-        </tr>
-      </thead>
-      <tbody data-testid="history-body"></tbody>
-    </table>
   </main>
   <script src="../scripts/main.ts"></script>
 </Layout>
