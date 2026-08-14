@@ -1,6 +1,7 @@
 import { euclidean, search, type GraphEdge, type GraphNode, type SearchResult } from "../lib/graph-search.ts";
 import { createOpenGraph, createTrapGraph, edgeId } from "../lib/graphs.ts";
 import { PHASE_LINES, type PseudoPhase } from "../lib/pseudocode.ts";
+import { WeightSlider } from "./weight-slider.ts";
 
 type Mode = "block" | "open" | "start" | "end";
 type GraphId = "open" | "trap";
@@ -54,6 +55,7 @@ export class GraphController {
   private weightAtRun = 1;
   private optimalLengthAtRun = -1;
   private autoPlayHandle: number | null = null;
+  private weightSlider: WeightSlider | null = null;
 
   constructor(root: ParentNode) {
     this.root = root;
@@ -72,9 +74,16 @@ export class GraphController {
         this.setMode(mode),
       );
     }
-    this.query<HTMLInputElement>('[data-testid="weight-slider"]')?.addEventListener("input", () =>
-      this.updateWeightLabel(),
-    );
+    this.weightSlider = new WeightSlider(this.root, {
+      min: 0,
+      max: 3,
+      step: 0.1,
+      defaultValue: 1,
+      snapValues: [0, 1],
+      snapThreshold: 0.12,
+      labelFormatter: (weight) => `${algorithmLabel(weight)} (weight ${weight.toFixed(1)})`,
+    });
+    this.weightSlider.start();
     this.query<HTMLButtonElement>('[data-testid="run-button"]')?.addEventListener("click", () => this.runSearch());
     this.query<HTMLButtonElement>('[data-testid="clear-blocks-button"]')?.addEventListener("click", () =>
       this.clearBlocks(),
@@ -104,17 +113,11 @@ export class GraphController {
     });
 
     this.updateModeButtons();
-    this.updateWeightLabel();
     this.updateGraphButtonLabel();
   }
 
   private currentWeight(): number {
-    return this.query<HTMLInputElement>('[data-testid="weight-slider"]')?.valueAsNumber ?? 1;
-  }
-
-  private updateWeightLabel(): void {
-    const weight = this.currentWeight();
-    this.setText('[data-testid="weight-label"]', `${algorithmLabel(weight)} (weight ${weight.toFixed(1)})`);
+    return this.weightSlider?.getValue() ?? 1;
   }
 
   private setMode(mode: Mode): void {
