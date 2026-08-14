@@ -514,22 +514,58 @@ a {
 }
 
 .pseudocode-panel ol {
-  margin: 0;
-  padding-inline-start: 1.4rem;
+  position: relative;
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 0.85rem;
+  line-height: 1.65;
   white-space: pre-wrap;
+  list-style: none;
+  counter-reset: line;
+  background: color-mix(in srgb, var(--color-bg) 55%, var(--color-surface));
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  overflow: hidden;
+}
+
+/* Divider between the line-number gutter and the code, spanning the whole
+   block as one line rather than repeating per <li>. */
+.pseudocode-panel ol::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.75rem;
+  inset-inline-start: 2.5rem;
+  width: 1px;
+  background: var(--color-border);
 }
 
 .pseudocode-panel li {
-  padding: 0.15rem 0.3rem;
-  border-radius: 0.3rem;
+  counter-increment: line;
+  position: relative;
+  padding: 0.2rem 0.9rem 0.2rem 3.25rem;
+  border-inline-start: 3px solid transparent;
   color: var(--color-muted);
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* A counter instead of the <ol>'s own marker, so the number can be
+   right-aligned against the gutter divider rather than left-aligned
+   against the code text. */
+.pseudocode-panel li::before {
+  content: counter(line);
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 0.2rem;
+  width: 2.5rem;
+  padding-inline-end: 0.5rem;
+  text-align: right;
+  color: var(--color-muted);
 }
 
 .pseudocode-panel li[data-state="active"] {
   background: var(--color-visited-soft);
+  border-inline-start-color: var(--color-visited);
   color: var(--color-text);
   font-weight: 600;
 }
