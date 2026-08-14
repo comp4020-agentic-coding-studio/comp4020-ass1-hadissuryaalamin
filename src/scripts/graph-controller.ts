@@ -53,6 +53,7 @@ export class GraphController {
   private historyRecorded = false;
   private weightAtRun = 1;
   private optimalLengthAtRun = -1;
+  private autoPlayHandle: number | null = null;
 
   constructor(root: ParentNode) {
     this.root = root;
@@ -81,8 +82,17 @@ export class GraphController {
     this.query<HTMLButtonElement>('[data-testid="load-trap-button"]')?.addEventListener("click", () =>
       this.loadTrapGraph(),
     );
-    this.query<HTMLButtonElement>('[data-testid="step-prev"]')?.addEventListener("click", () => this.stepPrev());
-    this.query<HTMLButtonElement>('[data-testid="step-next"]')?.addEventListener("click", () => this.stepNext());
+    this.query<HTMLButtonElement>('[data-testid="step-prev"]')?.addEventListener("click", () => {
+      this.stopAutoPlay();
+      this.stepPrev();
+    });
+    this.query<HTMLButtonElement>('[data-testid="step-next"]')?.addEventListener("click", () => {
+      this.stopAutoPlay();
+      this.stepNext();
+    });
+    this.query<HTMLButtonElement>('[data-testid="step-autoplay"]')?.addEventListener("click", () =>
+      this.toggleAutoPlay(),
+    );
 
     const stage = this.query<HTMLElement>('[data-testid="graph-stage"]');
     stage?.addEventListener("pointerdown", (event) => this.onPointerDown(event));
@@ -237,6 +247,7 @@ export class GraphController {
 
   /** Drops any active/past walkthrough and redraws the graph at its plain baseline (no costs, no run). */
   private resetVisualization(): void {
+    this.stopAutoPlay();
     this.result = null;
     this.stepIndex = 0;
     this.totalSteps = 0;
@@ -316,6 +327,44 @@ export class GraphController {
     if (!this.result || this.stepIndex === this.totalSteps) return;
     this.stepIndex += 1;
     this.renderStep();
+  }
+
+  /** Toggles a fixed-interval auto-advance through the walkthrough; replaying from the top if already finished. */
+  private toggleAutoPlay(): void {
+    if (this.autoPlayHandle !== null) {
+      this.stopAutoPlay();
+      return;
+    }
+    if (!this.result) return;
+    if (this.stepIndex >= this.totalSteps) {
+      this.stepIndex = 0;
+      this.renderStep();
+    }
+    this.setAutoPlayButtonState(true);
+    this.autoPlayHandle = window.setInterval(() => {
+      if (!this.result || this.stepIndex >= this.totalSteps) {
+        this.stopAutoPlay();
+        return;
+      }
+      this.stepIndex += 1;
+      this.renderStep();
+      if (this.stepIndex >= this.totalSteps) this.stopAutoPlay();
+    }, 900);
+  }
+
+  private stopAutoPlay(): void {
+    if (this.autoPlayHandle !== null) {
+      window.clearInterval(this.autoPlayHandle);
+      this.autoPlayHandle = null;
+    }
+    this.setAutoPlayButtonState(false);
+  }
+
+  private setAutoPlayButtonState(playing: boolean): void {
+    const button = this.query<HTMLButtonElement>('[data-testid="step-autoplay"]');
+    if (!button) return;
+    button.textContent = playing ? "⏸ Pause" : "▶ Auto";
+    button.setAttribute("aria-pressed", String(playing));
   }
 
   private showStepControls(show: boolean): void {
