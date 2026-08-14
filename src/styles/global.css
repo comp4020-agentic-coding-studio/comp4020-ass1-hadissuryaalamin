@@ -1,23 +1,22 @@
 :root {
-  --color-bg: #f7f8fb;
-  --color-surface: #fff;
-  --color-text: #1a1a1a;
-  --color-muted: #5b6270;
-  --color-border: #d7dbe3;
-  --color-link: #0b5fff;
-  --color-focus-ring: #d6472b;
-  --color-wall: #2b2f38;
-  --color-start: #16a34a;
-  --color-start-soft: #f0fdf4;
-  --color-end: #db2777;
-  --color-end-soft: #fdf2f8;
-  --color-visited: #93c5fd;
-  --color-visited-soft: #eff6ff;
-  --color-frontier: #a855f7;
-  --color-frontier-soft: #faf5ff;
-  --color-path: #f59e0b;
-  --color-correct: #16a34a;
-  --color-incorrect: #d6472b;
+  color-scheme: dark;
+
+  /* Blueprint / instrument-panel palette — the grid is graph paper, the
+     slider is a gauge, and "redline" (the real engineering term for past-the-
+     safe-limit) is literally what weight > 1 does to the optimality guarantee. */
+  --blueprint: #0a2647;
+  --panel: #123a63;
+  --panel-line: #2a568c;
+  --linework: #a9d6ff;
+  --paper: #f2f6fb;
+  --paper-dim: #b9cbe3;
+  --redline: #ff5a45;
+  --redline-soft: rgb(255 90 69 / 18%);
+  --verified: #34d399;
+  --verified-soft: rgb(52 211 153 / 18%);
+  --wall: #051327;
+  --font-display: ui-monospace, "Cascadia Code", "JetBrains Mono", "SFMono-Regular", consolas, monospace;
+  --font-body: ui-sans-serif, system-ui, "Segoe UI", roboto, sans-serif;
 }
 
 * {
@@ -26,11 +25,16 @@
 
 body {
   margin: 0;
-  padding: 2rem;
-  font-family: system-ui, sans-serif;
+  padding: 2rem 1.25rem 3rem;
+  font-family: var(--font-body);
   line-height: 1.6;
-  color: var(--color-text);
-  background: var(--color-bg);
+  color: var(--paper);
+  background: var(--blueprint);
+  background-image:
+    linear-gradient(var(--panel-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--panel-line) 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
+  background-position: center top;
 }
 
 main {
@@ -39,12 +43,7 @@ main {
 }
 
 a {
-  color: var(--color-link);
-}
-
-.lede {
-  color: var(--color-muted);
-  max-width: 40rem;
+  color: var(--linework);
 }
 
 .sr-only {
@@ -60,8 +59,48 @@ a {
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-focus-ring);
+  outline: 3px solid var(--redline);
   outline-offset: 2px;
+}
+
+/* Header — a technical drawing's title block: eyebrow, big mono title, double rule. */
+
+header nav {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-block-end: 1.5rem;
+}
+
+header nav a {
+  text-decoration: none;
+  border-bottom: 1px solid currentcolor;
+}
+
+main > h1 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: clamp(1.6rem, 1.1rem + 2vw, 2.6rem);
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 3px double var(--linework);
+}
+
+main > h1::before {
+  content: "FIG. 01 — WEIGHTED SEARCH";
+  display: block;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  color: var(--verified);
+  margin-block-end: 0.6rem;
+}
+
+.lede {
+  color: var(--paper-dim);
+  max-width: 40rem;
+  font-size: 1.05rem;
 }
 
 /* Shared button styles — one base class plus fill/outline modifiers, so no
@@ -69,12 +108,15 @@ a {
 
 .btn {
   font: inherit;
-  font-size: 1rem;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
   font-weight: 600;
-  padding: 0.7rem 1.2rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.7rem 1.1rem;
   margin-inline-end: 0.6rem;
   margin-block-end: 0.6rem;
-  border-radius: 0.6rem;
+  border-radius: 0.2rem;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
@@ -85,33 +127,34 @@ a {
 }
 
 .btn-outline {
-  border: 2px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
+  border: 1px solid var(--panel-line);
+  background: var(--panel);
+  color: var(--paper);
 }
 
 .btn-outline:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgb(0 0 0 / 12%);
+  border-color: var(--linework);
+  box-shadow: 0 3px 10px rgb(0 0 0 / 35%);
 }
 
 .btn-outline[aria-pressed="true"] {
-  border-color: var(--color-link);
-  background: #eaf1ff;
-  color: var(--color-link);
+  border-color: var(--linework);
+  background: var(--linework);
+  color: var(--blueprint);
 }
 
 .btn-fill {
-  border: 1px solid var(--color-link);
-  background: var(--color-link);
-  color: #fff;
+  border: 1px solid var(--verified);
+  background: var(--verified);
+  color: var(--blueprint);
 }
 
 .btn-fill:hover {
-  background: #084bcc;
+  background: #5ee0ac;
 }
 
-/* Controls */
+/* Controls — the instrument panel */
 
 .controls {
   display: flex;
@@ -119,10 +162,10 @@ a {
   gap: 1.5rem;
   align-items: flex-start;
   margin-block: 1.5rem;
-  padding: 1rem 1.25rem;
-  border: 2px solid var(--color-border);
-  border-radius: 0.9rem;
-  background: var(--color-surface);
+  padding: 1.1rem 1.3rem;
+  border: 1px solid var(--panel-line);
+  border-radius: 0.4rem;
+  background: var(--panel);
 }
 
 .mode-group,
@@ -133,39 +176,166 @@ a {
 }
 
 .weight-control {
-  flex: 1 1 16rem;
-  min-width: 14rem;
+  flex: 1 1 18rem;
+  min-width: 15rem;
 }
 
 .weight-control label {
   display: block;
+  font-family: var(--font-display);
   font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--color-muted);
+  font-size: 0.75rem;
+  color: var(--paper-dim);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.08em;
 }
 
 .weight-label {
-  margin: 0.2rem 0 0.4rem;
+  margin: 0.25rem 0 0.6rem;
+  font-family: var(--font-display);
   font-size: 1.1rem;
   font-weight: 700;
+  color: var(--linework);
 }
+
+/* The gauge: a fixed two-tone track (verified up to weight 1, redline past
+   it — that boundary is the whole point of the page) with a needle thumb. */
 
 .weight-control input[type="range"] {
   width: 100%;
+  appearance: none;
+  height: 1.5rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.weight-control input[type="range"]::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--verified) 0%,
+    var(--verified) 32%,
+    var(--redline) 34%,
+    var(--redline) 100%
+  );
+  border: 1px solid var(--wall);
+}
+
+.weight-control input[type="range"]::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--verified) 0%,
+    var(--verified) 32%,
+    var(--redline) 34%,
+    var(--redline) 100%
+  );
+  border: 1px solid var(--wall);
+}
+
+.weight-control input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 0.6rem;
+  height: 1.5rem;
+  margin-top: -0.5rem;
+  border-radius: 0.15rem;
+  background: var(--paper);
+  border: 2px solid var(--blueprint);
+  box-shadow: 0 0 0 1.5px var(--linework);
+}
+
+.weight-control input[type="range"]::-moz-range-thumb {
+  width: 0.6rem;
+  height: 1.5rem;
+  border-radius: 0.15rem;
+  background: var(--paper);
+  border: 2px solid var(--blueprint);
+  box-shadow: 0 0 0 1.5px var(--linework);
 }
 
 .weight-scale {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.75rem;
-  color: var(--color-muted);
-  margin-block-start: 0.2rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  color: var(--paper-dim);
+  margin-block-start: 0.3rem;
 }
 
-/* Graph: nodes (circles) and edges (connecting lines), interleaved on one
-   CSS grid — see index.astro for how each node/edge gets its grid line. */
+.weight-scale span:nth-child(1) {
+  text-align: left;
+}
+
+.weight-scale span:nth-child(2) {
+  text-align: center;
+  color: var(--verified);
+}
+
+.weight-scale span:nth-child(3) {
+  text-align: right;
+  color: var(--redline);
+}
+
+/* Legend — map/blueprint convention, and text-plus-swatch so the states
+   never rely on color alone. Duplicates info already on each cell's
+   aria-label, so it's decorative for sighted users only. */
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem 1.4rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--paper-dim);
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend .swatch {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 0.15rem;
+  border: 1px solid var(--panel-line);
+  flex-shrink: 0;
+}
+
+.swatch-wall {
+  background: var(--wall);
+}
+
+.swatch-start {
+  background: var(--verified);
+}
+
+.swatch-end {
+  background: var(--redline);
+}
+
+.swatch-frontier {
+  background: rgb(169 214 255 / 10%);
+  border-style: dashed;
+  border-color: var(--linework);
+}
+
+.swatch-visited {
+  background: rgb(169 214 255 / 35%);
+}
+
+.swatch-path {
+  background: var(--redline);
+  box-shadow: inset 0 0 0 2px var(--paper);
+}
+
+/* Graph: circular node tracks and thin edge tracks interleaved on one CSS
+   grid — see index.astro for how each node/edge gets its grid line. */
 
 .visualization {
   display: flex;
@@ -178,10 +348,10 @@ a {
   flex: 1 1 32rem;
   max-width: 40rem;
   margin-block: 1.5rem;
-  border: 2px solid var(--color-border);
-  border-radius: 0.6rem;
+  border: 1px solid var(--linework);
+  border-radius: 0.3rem;
   padding: 1rem;
-  background: var(--color-bg);
+  background: var(--blueprint);
   touch-action: none;
   overflow-x: auto;
 }
@@ -193,64 +363,68 @@ a {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--color-surface);
-  border: 2px solid var(--color-border);
+  background: rgb(169 214 255 / 6%);
+  border: 1px solid rgb(169 214 255 / 18%);
   transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
   cursor: pointer;
   font-size: 0.6rem;
   line-height: 1;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  color: var(--color-text);
+  font-family: var(--font-display);
+  color: var(--linework);
   overflow: hidden;
 }
 
 .grid-cell[data-state="wall"] {
   background: transparent;
-  border: 2px dashed var(--color-wall);
-  opacity: 0.4;
+  border: 1px dashed var(--wall);
+  opacity: 0.5;
 }
 
 .grid-cell[data-state="start"] {
-  background: var(--color-start-soft);
-  border-color: var(--color-start);
+  background: var(--verified-soft);
+  border-color: var(--verified);
+  color: var(--blueprint);
 }
 
 .grid-cell[data-state="end"] {
-  background: var(--color-end-soft);
-  border-color: var(--color-end);
-}
-
-.grid-cell[data-state="visited"] {
-  background: var(--color-visited-soft);
-  border-color: var(--color-visited);
+  background: var(--redline-soft);
+  border-color: var(--redline);
+  color: var(--blueprint);
 }
 
 .grid-cell[data-state="frontier"] {
-  background: var(--color-frontier-soft);
-  border-color: var(--color-frontier);
+  background: rgb(169 214 255 / 10%);
+  border-color: var(--linework);
   border-style: dashed;
 }
 
+.grid-cell[data-state="visited"] {
+  background: rgb(169 214 255 / 35%);
+  border-color: var(--linework);
+}
+
 .grid-cell[data-state="path"] {
-  background: var(--color-path);
-  border-color: var(--color-path);
+  background: var(--redline);
+  border-color: var(--redline);
+  color: var(--blueprint);
+  font-weight: 700;
 }
 
 .grid-edge {
   z-index: 0;
-  background: var(--color-border);
+  background: var(--panel-line);
   transition: background-color 0.2s ease;
 }
 
 .grid-edge[data-dir="right"] {
   align-self: center;
   width: 100%;
-  height: 6px;
+  height: 4px;
 }
 
 .grid-edge[data-dir="down"] {
   justify-self: center;
-  width: 6px;
+  width: 4px;
   height: 100%;
 }
 
@@ -259,7 +433,7 @@ a {
 }
 
 .grid-edge[data-state="path"] {
-  background: var(--color-path);
+  background: var(--redline);
 }
 
 /* Pseudocode panel */
@@ -270,38 +444,39 @@ a {
   max-width: 28rem;
   margin-block: 1.5rem;
   padding: 1rem 1.25rem;
-  border: 2px solid var(--color-border);
-  border-radius: 0.6rem;
-  background: var(--color-surface);
+  border: 1px solid var(--panel-line);
+  border-radius: 0.4rem;
+  background: var(--panel);
 }
 
 .pseudocode-panel h2 {
   margin-block-start: 0;
-  font-size: 0.85rem;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--color-muted);
+  color: var(--paper-dim);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.08em;
 }
 
 .pseudocode-panel ol {
   margin: 0;
   padding-inline-start: 1.4rem;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-family: var(--font-display);
   font-size: 0.85rem;
   white-space: pre-wrap;
 }
 
 .pseudocode-panel li {
   padding: 0.15rem 0.3rem;
-  border-radius: 0.3rem;
-  color: var(--color-muted);
+  border-radius: 0.2rem;
+  color: var(--paper-dim);
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .pseudocode-panel li[data-state="active"] {
-  background: var(--color-visited-soft);
-  color: var(--color-text);
+  background: rgb(169 214 255 / 16%);
+  color: var(--linework);
   font-weight: 600;
 }
 
@@ -314,15 +489,16 @@ a {
   gap: 0.75rem 1rem;
   margin-block-end: 1.5rem;
   padding: 1rem 1.25rem;
-  border: 2px solid var(--color-border);
-  border-radius: 0.9rem;
-  background: var(--color-surface);
+  border: 1px solid var(--panel-line);
+  border-radius: 0.4rem;
+  background: var(--panel);
 }
 
 .step-counter {
   margin: 0;
+  font-family: var(--font-display);
   font-weight: 600;
-  color: var(--color-muted);
+  color: var(--paper-dim);
   white-space: nowrap;
 }
 
@@ -330,40 +506,45 @@ a {
   flex: 1 1 100%;
   margin: 0;
   order: 3;
+  color: var(--paper);
 }
 
-/* Result banner */
+/* Result banner — a data-plate readout */
 
 .result-banner {
-  border: 2px solid var(--color-border);
-  border-left: 6px solid var(--color-link);
-  border-radius: 0.9rem;
-  background: var(--color-surface);
+  border: 1px solid var(--panel-line);
+  border-left: 4px solid var(--linework);
+  border-radius: 0.4rem;
+  background: var(--panel);
   padding: 1.1rem 1.4rem;
   margin-block-end: 1.5rem;
 }
 
 .banner-headline {
   margin: 0 0 0.3rem;
-  font-size: 1.15rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
   font-weight: 700;
 }
 
 .banner-detail {
   margin: 0;
-  color: var(--color-muted);
+  color: var(--paper-dim);
 }
 
-/* History table */
+/* History table — a lab log */
 
 .history-table {
   width: 100%;
   border-collapse: collapse;
   margin-block-end: 2rem;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
 }
 
 .history-table caption {
   text-align: left;
+  font-family: var(--font-body);
   font-weight: 600;
   margin-block-end: 0.5rem;
 }
@@ -372,14 +553,18 @@ a {
 .history-table td {
   text-align: left;
   padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--panel-line);
 }
 
 .history-table th {
-  color: var(--color-muted);
-  font-size: 0.8rem;
+  color: var(--paper-dim);
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
+}
+
+.history-table tbody tr:nth-child(even) {
+  background: rgb(169 214 255 / 4%);
 }
 
 @media (width <= 60rem) {
@@ -411,7 +596,7 @@ a {
   }
 
   .history-table {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
   }
 }
 
