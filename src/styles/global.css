@@ -62,6 +62,10 @@ a {
   border: 0;
 }
 
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 :focus-visible {
   outline: 3px solid var(--color-focus-ring);
   outline-offset: 2px;
@@ -167,8 +171,8 @@ a {
   margin-block-start: 0.2rem;
 }
 
-/* Graph: nodes (circles) and edges (connecting lines), interleaved on one
-   CSS grid — see index.astro for how each node/edge gets its grid line. */
+/* Graph: nodes (circles) and edges (lines) rendered as SVG — see
+   index.astro's layoutPositions() for the abstract-x/y → cx/cy math. */
 
 .visualization {
   display: flex;
@@ -176,8 +180,7 @@ a {
   align-items: flex-start;
 }
 
-.grid {
-  display: grid;
+.graph-stage {
   flex: 1 1 32rem;
   max-width: 40rem;
   margin-block: 1.5rem;
@@ -185,85 +188,106 @@ a {
   border-radius: 0.6rem;
   padding: 1rem;
   background: var(--color-bg);
-  touch-action: none;
   overflow-x: auto;
 }
 
-.grid-cell {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--color-surface);
-  border: 2px solid var(--color-border);
-  transition: background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
-  cursor: pointer;
-  font-size: 0.6rem;
-  line-height: 1;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  color: var(--color-text);
-  overflow: hidden;
-}
-
-.grid-cell[data-state="wall"] {
-  background: transparent;
-  border: 2px dashed var(--color-wall);
-  opacity: 0.4;
-}
-
-.grid-cell[data-state="start"] {
-  background: var(--color-start-soft);
-  border-color: var(--color-start);
-}
-
-.grid-cell[data-state="end"] {
-  background: var(--color-end-soft);
-  border-color: var(--color-end);
-}
-
-.grid-cell[data-state="visited"] {
-  background: var(--color-visited-soft);
-  border-color: var(--color-visited);
-}
-
-.grid-cell[data-state="frontier"] {
-  background: var(--color-frontier-soft);
-  border-color: var(--color-frontier);
-  border-style: dashed;
-}
-
-.grid-cell[data-state="path"] {
-  background: var(--color-path);
-  border-color: var(--color-path);
-  border-width: 3px;
-}
-
-.grid-edge {
-  z-index: 0;
-  background: var(--color-border);
-  transition: background-color 0.2s ease;
-}
-
-.grid-edge[data-dir="right"] {
-  align-self: center;
+.graph {
+  display: block;
   width: 100%;
-  height: 6px;
+  height: auto;
+  touch-action: none;
 }
 
-.grid-edge[data-dir="down"] {
-  justify-self: center;
-  width: 6px;
-  height: 100%;
-}
-
-.grid-edge[data-state="closed"] {
+.graph[hidden] {
   display: none;
 }
 
-.grid-edge[data-state="path"] {
-  background: var(--color-path);
+.graph-node circle {
+  fill: var(--color-surface);
+  stroke: var(--color-border);
+  stroke-width: 2;
+  cursor: pointer;
+  transition: fill 0.2s ease, stroke 0.2s ease, stroke-width 0.2s ease;
+}
+
+.graph-node-label {
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  fill: var(--color-text);
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  user-select: none;
+}
+
+.graph-node-cost {
+  font-size: 0.7rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  fill: var(--color-muted);
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.graph-node[data-state="start"] circle {
+  fill: var(--color-start-soft);
+  stroke: var(--color-start);
+}
+
+.graph-node[data-state="end"] circle {
+  fill: var(--color-end-soft);
+  stroke: var(--color-end);
+}
+
+.graph-node[data-state="visited"] circle {
+  fill: var(--color-visited-soft);
+  stroke: var(--color-visited);
+}
+
+.graph-node[data-state="frontier"] circle {
+  fill: var(--color-frontier-soft);
+  stroke: var(--color-frontier);
+  stroke-dasharray: 5 3;
+}
+
+.graph-node[data-state="path"] circle {
+  fill: var(--color-path);
+  stroke: var(--color-path);
+  stroke-width: 4;
+}
+
+.graph-edge {
+  stroke: var(--color-border);
+  stroke-width: 3;
+  pointer-events: none;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease, stroke-dasharray 0.2s ease;
+}
+
+.graph-edge-hit {
+  stroke: transparent;
+  stroke-width: 18;
+  cursor: pointer;
+}
+
+.graph-edge-weight {
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  fill: var(--color-muted);
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.graph-edge[data-state="blocked"] {
+  stroke: var(--color-wall);
+  stroke-dasharray: 6 4;
+  opacity: 0.6;
+}
+
+.graph-edge[data-state="path"] {
+  stroke: var(--color-path);
+  stroke-width: 6;
 }
 
 /* Pseudocode panel */
@@ -426,7 +450,8 @@ a {
     flex-direction: column;
   }
 
-  .grid {
+  .graph-stage {
+    flex-basis: auto;
     max-width: 100%;
     width: 100%;
   }
@@ -455,8 +480,8 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .grid-cell,
-  .grid-edge,
+  .graph-node circle,
+  .graph-edge,
   .pseudocode-panel li,
   .btn {
     transition: none;

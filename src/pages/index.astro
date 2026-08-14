@@ -1,50 +1,82 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { DEFAULT_END, DEFAULT_START, GRID_COLS, GRID_ROWS } from "../lib/mazes.ts";
+import { createOpenGraph, createTrapGraph, type ExampleGraph } from "../lib/graphs.ts";
 import { PSEUDOCODE_LINES } from "../lib/pseudocode.ts";
 
-const cells: { row: number; col: number; state: "start" | "end" | "empty" }[] = [];
-for (let row = 0; row < GRID_ROWS; row++) {
-  for (let col = 0; col < GRID_COLS; col++) {
-    const isStart = row === DEFAULT_START.row && col === DEFAULT_START.col;
-    const isEnd = row === DEFAULT_END.row && col === DEFAULT_END.col;
-    cells.push({ row, col, state: isStart ? "start" : isEnd ? "end" : "empty" });
-  }
+const VIEW_WIDTH = 800;
+const VIEW_HEIGHT = 500;
+const MARGIN = 70;
+const NODE_RADIUS = 28;
+
+// The only pixel-space math in the whole graph feature: scale + center each
+// example graph's abstract x/y (used for the Euclidean heuristic in
+// graph-search.ts) into the SVG viewBox. graphs.ts itself stays pure data,
+// same as mazes.ts having zero grid-placement math today.
+function layoutPositions(nodes: ExampleGraph["nodes"]): Map<string, { cx: number; cy: number }> {
+  const xs = nodes.map((node) => node.x);
+  const ys = nodes.map((node) => node.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const spanX = maxX - minX || 1;
+  const spanY = maxY - minY || 1;
+  const scale = Math.min((VIEW_WIDTH - 2 * MARGIN) / spanX, (VIEW_HEIGHT - 2 * MARGIN) / spanY);
+  const offsetX = (VIEW_WIDTH - spanX * scale) / 2;
+  const offsetY = (VIEW_HEIGHT - spanY * scale) / 2;
+  return new Map(
+    nodes.map((node) => [
+      node.id,
+      { cx: offsetX + (node.x - minX) * scale, cy: offsetY + (node.y - minY) * scale },
+    ]),
+  );
 }
 
-// Interleaved grid: node tracks (circles) alternate with thin edge tracks, so
-// a node's (row, col) and an edge's endpoints map straight to 1-based grid
-// lines with no JS geometry. aspect-ratio uses the unit-weighted totals (not
-// the raw track counts) so each node track comes out square, i.e. a circle.
-const NODE_UNIT = 3;
-const EDGE_UNIT = 1;
-// Floors on each track so a node never shrinks below legible size for its
-// per-node cost label — on a narrow viewport the grid overflows its box
-// instead, and `.grid { overflow-x: auto }` turns that into a scrollbar.
-const NODE_MIN = "1.6rem";
-const EDGE_MIN = "0.4rem";
-const trackTemplate = (count: number) =>
-  Array.from(
-    { length: count * 2 - 1 },
-    (_, i) => (i % 2 === 0 ? `minmax(${NODE_MIN}, ${NODE_UNIT}fr)` : `minmax(${EDGE_MIN}, ${EDGE_UNIT}fr)`),
-  ).join(" ");
-const totalUnits = (count: number) => count * NODE_UNIT + (count - 1) * EDGE_UNIT;
+type NodeView = { id: string; label: string; cx: number; cy: number; state: "start" | "end" | "empty" };
+type EdgeView = {
+  id: string;
+  a: string;
+  b: string;
+  weight: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  labelX: number;
+  labelY: number;
+};
+type GraphView = { id: string; description: string; nodes: NodeView[]; edges: EdgeView[] };
 
-type Edge = { row: number; col: number; dir: "right" | "down" };
-const rightEdges: Edge[] = [];
-const downEdges: Edge[] = [];
-for (let row = 0; row < GRID_ROWS; row++) {
-  for (let col = 0; col < GRID_COLS; col++) {
-    if (col < GRID_COLS - 1) rightEdges.push({ row, col, dir: "right" });
-    if (row < GRID_ROWS - 1) downEdges.push({ row, col, dir: "down" });
-  }
+function buildView(id: string, description: string, graph: ExampleGraph): GraphView {
+  const positions = layoutPositions(graph.nodes);
+  const nodes: NodeView[] = graph.nodes.map((node) => {
+    const pos = positions.get(node.id)!;
+    const state = node.id === graph.start ? "start" : node.id === graph.end ? "end" : "empty";
+    return { id: node.id, label: node.label, cx: pos.cx, cy: pos.cy, state };
+  });
+  const edges: EdgeView[] = graph.edges.map((edge) => {
+    const a = positions.get(edge.a)!;
+    const b = positions.get(edge.b)!;
+    return {
+      id: edge.id,
+      a: edge.a,
+      b: edge.b,
+      weight: edge.weight,
+      x1: a.cx,
+      y1: a.cy,
+      x2: b.cx,
+      y2: b.cy,
+      labelX: (a.cx + b.cx) / 2,
+      labelY: (a.cy + b.cy) / 2 - 10,
+    };
+  });
+  return { id, description, nodes, edges };
 }
 
-const gridStyle = [
-  `grid-template-columns: ${trackTemplate(GRID_COLS)}`,
-  `grid-template-rows: ${trackTemplate(GRID_ROWS)}`,
-  `aspect-ratio: ${totalUnits(GRID_COLS)} / ${totalUnits(GRID_ROWS)}`,
-].join("; ");
+const graphViews: GraphView[] = [
+  buildView("open", "the open example — every weight finds the same shortest route", createOpenGraph()),
+  buildView("trap", "the trap example — a decoy node that fools a high weight", createTrapGraph()),
+];
 ---
 
 <Layout title="One Dial, Three Pathfinders">
@@ -62,13 +94,13 @@ const gridStyle = [
       quietly stop holding.
     </p>
 
-    <section class="controls" aria-label="Grid controls">
-      <div class="mode-group" role="group" aria-label="Cell mode">
-        <button type="button" class="btn btn-outline" data-testid="mode-draw" aria-pressed="true">
-          ✏️ Draw wall
+    <section class="controls" aria-label="Graph controls">
+      <div class="mode-group" role="group" aria-label="Edge and node mode">
+        <button type="button" class="btn btn-outline" data-testid="mode-block" aria-pressed="true">
+          🚫 Block edge
         </button>
-        <button type="button" class="btn btn-outline" data-testid="mode-erase" aria-pressed="false">
-          🧹 Erase
+        <button type="button" class="btn btn-outline" data-testid="mode-open" aria-pressed="false">
+          🔓 Open edge
         </button>
         <button type="button" class="btn btn-outline" data-testid="mode-start" aria-pressed="false">
           🟢 Set start
@@ -91,60 +123,86 @@ const gridStyle = [
 
       <div class="action-row">
         <button type="button" class="btn btn-fill" data-testid="run-button">▶ Run</button>
-        <button type="button" class="btn btn-outline" data-testid="clear-walls-button">Clear walls</button>
-        <button type="button" class="btn btn-outline" data-testid="load-trap-button">Load trap maze</button>
+        <button type="button" class="btn btn-outline" data-testid="clear-blocks-button">Clear blocks</button>
+        <button type="button" class="btn btn-outline" data-testid="load-trap-button">Load trap graph</button>
       </div>
     </section>
 
     <div class="visualization">
-      <div
-        class="grid"
-        role="grid"
-        aria-label={`Pathfinding graph, ${GRID_COLS} columns by ${GRID_ROWS} rows`}
-        data-testid="grid"
-        style={gridStyle}
-      >
+      <div class="graph-stage" data-testid="graph-stage">
         {
-          cells.map((cell) => (
-            <div
-              class="grid-cell"
-              role="gridcell"
-              data-testid="grid-cell"
-              data-row={cell.row}
-              data-col={cell.col}
-              data-state={cell.state}
-              tabindex={cell.row === DEFAULT_START.row && cell.col === DEFAULT_START.col ? 0 : -1}
-              aria-label={`Row ${cell.row + 1}, column ${cell.col + 1}, ${cell.state}`}
-              style={`grid-column: ${cell.col * 2 + 1}; grid-row: ${cell.row * 2 + 1};`}
-            />
-          ))
-        }
-        {
-          rightEdges.map((edge) => (
-            <div
-              class="grid-edge"
-              data-testid="grid-edge"
-              data-row={edge.row}
-              data-col={edge.col}
-              data-dir="right"
-              data-state="open"
-              aria-hidden="true"
-              style={`grid-column: ${edge.col * 2 + 2}; grid-row: ${edge.row * 2 + 1};`}
-            />
-          ))
-        }
-        {
-          downEdges.map((edge) => (
-            <div
-              class="grid-edge"
-              data-testid="grid-edge"
-              data-row={edge.row}
-              data-col={edge.col}
-              data-dir="down"
-              data-state="open"
-              aria-hidden="true"
-              style={`grid-column: ${edge.col * 2 + 1}; grid-row: ${edge.row * 2 + 2};`}
-            />
+          graphViews.map((view) => (
+            <svg
+              class="graph"
+              data-testid="graph"
+              data-graph-id={view.id}
+              viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+              role="group"
+              aria-label={`Pathfinding graph: ${view.description}`}
+              {...(view.id !== "open" ? { hidden: true } : {})}
+            >
+              {view.edges.map((edge) => (
+                <g class="graph-edge-group">
+                  <line
+                    class="graph-edge-hit"
+                    data-testid="graph-edge-hit"
+                    data-edge-id={edge.id}
+                    x1={edge.x1}
+                    y1={edge.y1}
+                    x2={edge.x2}
+                    y2={edge.y2}
+                    tabindex="0"
+                    role="button"
+                    aria-label={`Edge ${edge.a} to ${edge.b}, weight ${edge.weight}, open`}
+                  />
+                  <line
+                    class="graph-edge"
+                    data-testid="graph-edge"
+                    data-edge-id={edge.id}
+                    data-state="open"
+                    x1={edge.x1}
+                    y1={edge.y1}
+                    x2={edge.x2}
+                    y2={edge.y2}
+                    aria-hidden="true"
+                  />
+                  <text
+                    class="graph-edge-weight"
+                    data-testid="graph-edge-weight"
+                    data-edge-id={edge.id}
+                    x={edge.labelX}
+                    y={edge.labelY}
+                    aria-hidden="true"
+                  >
+                    {edge.weight}
+                  </text>
+                </g>
+              ))}
+              {view.nodes.map((node) => (
+                <g
+                  class="graph-node"
+                  data-testid="graph-node"
+                  data-node-id={node.id}
+                  data-state={node.state}
+                  tabindex="0"
+                  role="button"
+                  aria-label={`Node ${node.label}, ${node.state}`}
+                >
+                  <circle cx={node.cx} cy={node.cy} r={NODE_RADIUS} />
+                  <text class="graph-node-label" x={node.cx} y={node.cy} aria-hidden="true">
+                    {node.label}
+                  </text>
+                  <text
+                    class="graph-node-cost"
+                    data-testid="graph-node-cost"
+                    data-node-id={node.id}
+                    x={node.cx}
+                    y={node.cy + NODE_RADIUS + 16}
+                    aria-hidden="true"
+                  />
+                </g>
+              ))}
+            </svg>
           ))
         }
       </div>
@@ -170,7 +228,7 @@ const gridStyle = [
       <p class="step-caption" data-testid="step-caption"></p>
     </div>
 
-    <p class="sr-only" role="status" aria-live="polite" data-testid="grid-status"></p>
+    <p class="sr-only" role="status" aria-live="polite" data-testid="graph-status"></p>
 
     <div class="result-banner" data-testid="result-banner" hidden>
       <p class="banner-headline" data-role="headline"></p>
@@ -183,9 +241,9 @@ const gridStyle = [
         <tr>
           <th scope="col">Weight</th>
           <th scope="col">Algorithm</th>
-          <th scope="col">Path length</th>
+          <th scope="col">Path cost</th>
           <th scope="col">Optimal?</th>
-          <th scope="col">Cells expanded</th>
+          <th scope="col">Nodes expanded</th>
         </tr>
       </thead>
       <tbody data-testid="history-body"></tbody>

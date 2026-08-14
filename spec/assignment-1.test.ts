@@ -12,32 +12,41 @@ import { describe, expect, it } from "vitest";
 // not locally. "Static and client-side throughout" holds as long as the
 // invariants in spec/invariants.test.ts stay green.
 //
-// This file was rewritten (not preserved) when the concept pivoted a second
-// time, from the hidden-state-probe guessing game to this A* weight-dial
-// visualizer — see PLAN.md. It re-derives the contract from the new mechanic
-// rather than adapting the old assertions.
+// This file was rewritten a third time when the fixed 16x10 grid was replaced
+// with a free-form node-link graph (nodes/edges no longer have a fixed
+// count derivable from grid dimensions) — see PROCESS.md. It re-derives the
+// contract from the new mechanic rather than adapting the old assertions.
 
 const distPath = resolve("dist/index.html");
 const doc = existsSync(distPath) ? new JSDOM(readFileSync(distPath, "utf8")).window.document : null;
 
+// Both example graphs are pre-rendered as sibling <svg> elements; only one is
+// visible at a time (the other carries `hidden`). Structural counts below are
+// scoped to the visible one so switching examples can't silently double them.
+const visibleGraph = '[data-testid="graph"]:not([hidden])';
+
 // Spec: "the visitor does something that changes what they see — state the
 // core interaction plainly enough to write a test for it." The core
-// interaction here: draw walls (or load the trap maze), drag the weight
-// slider, hit Run, and watch the search animate then report whether it found
-// the true shortest path. This only checks the structural hooks exist in the
-// shipped markup, not the animation itself.
+// interaction here: block/open edges (or load the trap graph), drag the
+// weight slider, hit Run, and watch the search animate then report whether it
+// found the true shortest path. This only checks the structural hooks exist
+// in the shipped markup, not the animation itself.
 describe("core interaction: the weight-dial pathfinder is present in the shipped page", () => {
   it("built the home page", () => {
     expect(existsSync(distPath), "run `pnpm build` first").toBe(true);
   });
 
-  it("renders the full 16x10 grid of cells", () => {
-    expect(doc?.querySelectorAll('[data-testid="grid-cell"]').length).toBe(160);
+  it("renders the default example graph's nodes", () => {
+    expect(doc?.querySelectorAll(`${visibleGraph} [data-testid="graph-node"]`).length).toBe(6);
   });
 
-  it("has a mode control for each of draw / erase / set-start / set-end", () => {
-    expect(doc?.querySelector('[data-testid="mode-draw"]')).toBeTruthy();
-    expect(doc?.querySelector('[data-testid="mode-erase"]')).toBeTruthy();
+  it("connects the default example graph's nodes with edges", () => {
+    expect(doc?.querySelectorAll(`${visibleGraph} [data-testid="graph-edge"]`).length).toBe(7);
+  });
+
+  it("has a mode control for each of block-edge / open-edge / set-start / set-end", () => {
+    expect(doc?.querySelector('[data-testid="mode-block"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="mode-open"]')).toBeTruthy();
     expect(doc?.querySelector('[data-testid="mode-start"]')).toBeTruthy();
     expect(doc?.querySelector('[data-testid="mode-end"]')).toBeTruthy();
   });
@@ -49,9 +58,9 @@ describe("core interaction: the weight-dial pathfinder is present in the shipped
     expect(slider?.getAttribute("max")).toBe("3");
   });
 
-  it("has Run, Clear walls, and Load trap maze controls", () => {
+  it("has Run, Clear blocks, and Load trap graph controls", () => {
     expect(doc?.querySelector('[data-testid="run-button"]')).toBeTruthy();
-    expect(doc?.querySelector('[data-testid="clear-walls-button"]')).toBeTruthy();
+    expect(doc?.querySelector('[data-testid="clear-blocks-button"]')).toBeTruthy();
     expect(doc?.querySelector('[data-testid="load-trap-button"]')).toBeTruthy();
   });
 
@@ -61,15 +70,9 @@ describe("core interaction: the weight-dial pathfinder is present in the shipped
     expect(banner?.hasAttribute("hidden")).toBe(true);
   });
 
-  it("has a run-history table for comparing weights on the same maze", () => {
+  it("has a run-history table for comparing weights on the same graph", () => {
     expect(doc?.querySelector('[data-testid="history-table"]')).toBeTruthy();
     expect(doc?.querySelector('[data-testid="history-body"]')).toBeTruthy();
-  });
-
-  // The grid renders as a node-edge graph, not a square-cell grid: 160 nodes
-  // (checked above) plus every connecting edge between orthogonal neighbors.
-  it("connects the 16x10 grid of nodes with edges (294 = 10x15 right + 9x16 down)", () => {
-    expect(doc?.querySelectorAll('[data-testid="grid-edge"]').length).toBe(294);
   });
 
   it("has a pseudocode panel with one line per step of the search loop", () => {
@@ -94,16 +97,16 @@ describe("core interaction: the weight-dial pathfinder is present in the shipped
 // Spec: "clear distinction between [outcomes]". The distinction this site
 // demonstrates is optimal vs. not — tested as a pure data contract on the
 // search engine itself, so it survives whatever UI or animation ends up
-// wrapping it. See src/lib/astar.test.ts for the full proof; this only checks
-// that the shipped preset maze is wired to the same result.
-describe("trap maze: the core mechanic", () => {
-  it("the shipped trap-maze preset reproduces the optimal-vs-fooled split", async () => {
-    const { search } = await import("../src/lib/astar.ts");
-    const { createTrapMaze, DEFAULT_START, DEFAULT_END } = await import("../src/lib/mazes.ts");
-    const walls = createTrapMaze();
+// wrapping it. See src/lib/graph-search.test.ts for the full proof; this only
+// checks that the shipped trap-graph preset is wired to the same result.
+describe("trap graph: the core mechanic", () => {
+  it("the shipped trap-graph preset reproduces the optimal-vs-fooled split", async () => {
+    const { search } = await import("../src/lib/graph-search.ts");
+    const { createTrapGraph } = await import("../src/lib/graphs.ts");
+    const { nodes, edges, start, end } = createTrapGraph();
 
-    const trueOptimal = search(walls, DEFAULT_START, DEFAULT_END, 1).pathLength;
-    const fooled = search(walls, DEFAULT_START, DEFAULT_END, 3).pathLength;
+    const trueOptimal = search(nodes, edges, new Set(), start, end, 1).pathLength;
+    const fooled = search(nodes, edges, new Set(), start, end, 3).pathLength;
 
     expect(trueOptimal).toBeGreaterThan(0);
     expect(fooled).toBeGreaterThan(trueOptimal);
