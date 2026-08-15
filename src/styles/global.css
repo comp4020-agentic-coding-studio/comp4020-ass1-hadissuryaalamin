@@ -513,7 +513,15 @@ main > h1::before {
   .graph-node,
   .graph-edge,
   .code-block .line,
-  .btn {
+  .btn,
+  .visualization {
     transition: none;
+  }
+
+  /* ScrollPinController never creates a pin under reduced motion (see its
+     matchMedia gate) — without this, .scroll-track's extra height would
+     just be a tall blank gap with nothing scrubbing through it. */
+  .scroll-track {
+    min-height: 0;
   }
 }

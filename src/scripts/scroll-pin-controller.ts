@@ -67,6 +67,7 @@ export class ScrollPinController {
   }
 
   destroy(): void {
+    this.clearProgrammaticScroll?.();
     this.mm?.revert();
     this.mm = null;
     this.graph.onStepRendered = null;
