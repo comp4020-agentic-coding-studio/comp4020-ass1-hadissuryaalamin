@@ -228,10 +228,29 @@ main > h1::before {
    GSAP's CSS scale tweens pivot on their own bounding box, not the SVG
    viewport origin, even though each node also carries an SVG translate. */
 
+/* Scroll track: taller than its pinned .visualization child so there's scroll
+   distance to scrub through — see ScrollPinController. Height grows with the
+   walkthrough's own step count so a longer trace gets proportionally more
+   scroll room instead of racing through at a fixed speed. */
+.scroll-track {
+  --step-vh: 22;
+
+  position: relative;
+  min-height: calc(100vh + var(--step-count, 1) * var(--step-vh) * 1vh);
+}
+
 .visualization {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  transition:
+    box-shadow 0.2s ease,
+    scale 0.2s ease;
+}
+
+.visualization.lift-off {
+  box-shadow: 0 1.5rem 3rem -1rem rgb(0 0 0 / 35%);
+  scale: 1.01;
 }
 
 .graph-figure {

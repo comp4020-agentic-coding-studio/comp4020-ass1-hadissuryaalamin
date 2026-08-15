@@ -58,7 +58,8 @@ const codeHtml: Record<CodeLang, string> = {
       <li><span class="swatch swatch-path"></span> Shortest path</li>
     </ul>
 
-    <div class="visualization">
+    <div class="scroll-track" data-testid="scroll-track">
+      <div class="visualization">
       <figure class="graph-figure">
         <div class="graph-stage">
           <svg
@@ -161,6 +162,7 @@ const codeHtml: Record<CodeLang, string> = {
           ))
         }
       </aside>
+      </div>
     </div>
 
     <p class="sr-only" role="status" aria-live="polite" data-testid="graph-status"></p>
