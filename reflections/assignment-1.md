@@ -2,26 +2,28 @@
 
 **What was the breakthrough that moved the work forward?**
 
-The breakthrough wasn't a UI trick — it was catching, by driving the actual
-browser instead of trusting `pnpm check`, that the finished build silently
-never finished. After a third pivot dropped a multi-algorithm weight-dial grid
-for one fixed graph walked by plain Dijkstra, shown against its own real
-Python/Java source instead of pseudocode, `spec/assignment-1.test.ts` was
-rewritten from that new mechanic outward rather than patched line-by-line.
-Typecheck, build, and all 38 rewritten tests went green. The site still had a
-bug: the finish-step state replay indexed one entry past the end of the
-recorded pop sequence, throwing on every completed run and silently keeping
-the result banner — the entire payoff, "here's the shortest path and its
-cost" — hidden. Nothing in the automated suite surfaced it; clicking Run in a
-real browser did.
+The real breakthrough wasn't a single line of code — it was treating
+`PLAN.md` as an actual planning discipline instead of a formality. Writing a
+plan before each pivot (the hidden-state-probe idea, the weight-dial
+redesign, the final single-graph rebuild) forced me to think a change through
+before asking the agent to build it, instead of improvising in the editor.
+Installing and using Anthropic's frontend-design skill was a breakthrough of
+a different kind: instead of guessing at colors, I let a documented process
+ground the blueprint-navy palette in the assignment's own subject matter,
+which is where most of my actual web-development vocabulary — palette
+tokens, flex layout, viewport-relative units — came from on this project.
+What surprised me most, though, was how little `PLAN.md` behaved like a
+fixed plan in practice: almost every pivot meant rewriting it from scratch,
+less a blueprint than a snapshot of my best thinking at one moment,
+discarded the moment a sharper idea showed up.
 
 **What did this work change about who I want to be as a software developer?**
 
-It hardened a habit this project kept forcing on me: green checks are
-permission to ask a harder question, not the answer to one. A fully passing
-suite told me the code ran, never that the feature worked — those turned out
-to be different claims, and the gap between them hid exactly the moment a
-visitor was there to see. I also relearned, across three topic changes and
-one thrown-away spec-compliant build, that being willing to discard working
-code for a sharper idea is not wasted effort — it's the only way something
-worth showing gets built instead of something merely finished.
+It made two gaps clear. First, I still need real domain knowledge of web
+development — CSS layout, accessibility, the actual vocabulary of the stack
+— rather than leaning on the agent to fill that in every time. Second, and
+more exciting to me, is where I want to take the process itself: rather than
+writing one long `PLAN.md` and walking a single agent through it step by
+step, I want to get good at splitting work into clearly separated fields —
+layout, styling, content, testing — so several agents can pick up a field
+each and run in parallel, instead of one long serial conversation.
