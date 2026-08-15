@@ -1,3 +1,3 @@
-import { GridController } from "./grid-controller.ts";
+import { GraphController } from "./graph-controller.ts";
 
-new GridController(document).start();
+new GraphController(document).start();

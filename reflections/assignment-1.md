@@ -2,31 +2,28 @@
 
 **What was the breakthrough that moved the work forward?**
 
-Not a bug fix — noticing that "watch A* find a path on a grid" is the generic
-version of this topic, built as a student demo hundreds of times, and proves
-nothing a visitor couldn't get from a Wikipedia gif. The sharper claim that
-actually moved the build forward was realizing Dijkstra, A*, and greedy
-best-first aren't three algorithms to show side by side, but one weighted
-search at three settings of a single dial — and that the dial has a point
-where it quietly stops keeping its promise. The second breakthrough was
-proving that specific claim as a unit test, on the real search engine, before
-building a single pixel of grid or animation on top of it: a hand-built maze
-that lures a highly-weighted search into a dead-end-adjacent trap, verified to
-return a strictly longer path past weight ~2.6 while Dijkstra and true A* both
-still find the optimal one. Validating the "gotcha" first meant the whole
-visual build had something real to demonstrate rather than hoping the maze
-would work out once wired up.
+The real breakthrough wasn't a single line of code — it was treating
+`PLAN.md` as an actual planning discipline instead of a formality. Writing a
+plan before each pivot (the hidden-state-probe idea, the weight-dial
+redesign, the final single-graph rebuild) forced me to think a change through
+before asking the agent to build it, instead of improvising in the editor.
+Installing and using Anthropic's frontend-design skill was a breakthrough of
+a different kind: instead of guessing at colors, I let a documented process
+ground the blueprint-navy palette in the assignment's own subject matter,
+which is where most of my actual web-development vocabulary — palette
+tokens, flex layout, viewport-relative units — came from on this project.
+What surprised me most, though, was how little `PLAN.md` behaved like a
+fixed plan in practice: almost every pivot meant rewriting it from scratch,
+less a blueprint than a snapshot of my best thinking at one moment,
+discarded the moment a sharper idea showed up.
 
 **What did this work change about who I want to be as a software developer?**
 
-It sharpened a habit I'd already started forming earlier in this same project:
-treat "the checks are green" as permission to ask a harder question, not as
-the answer to one. That showed up twice here, in two different forms. Once as
-a design habit — before touching any UI, prove the core claim (the trap maze
-actually traps) as a cheap, fast unit test, so an expensive animation is never
-built on top of an assumption that turns out false. And once as a testing
-habit — after the UI existed and `pnpm check` was fully green, still write a
-throwaway test that drives the real controller through real events, because a
-green typecheck and a passing build both answer "does this compile," not "does
-tapping a cell actually paint a wall." I want to keep asking both versions of
-that question by default, not just when a check happens to fail.
+It made two gaps clear. First, I still need real domain knowledge of web
+development — CSS layout, accessibility, the actual vocabulary of the stack
+— rather than leaning on the agent to fill that in every time. Second, and
+more exciting to me, is where I want to take the process itself: rather than
+writing one long `PLAN.md` and walking a single agent through it step by
+step, I want to get good at splitting work into clearly separated fields —
+layout, styling, content, testing — so several agents can pick up a field
+each and run in parallel, instead of one long serial conversation.
