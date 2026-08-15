@@ -46,49 +46,6 @@ a {
   color: var(--linework);
 }
 
-/* Ambient background — slow-moving sketch lines layered over the grid,
-   fixed behind all content and inert to input. */
-
-.floating-paths {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.floating-paths svg {
-  width: 100%;
-  height: 100%;
-}
-
-.floating-paths path {
-  fill: none;
-  stroke: var(--linework);
-  stroke-dasharray: 8 6;
-  animation:
-    path-flow var(--dur, 24s) linear infinite,
-    path-breathe var(--dur, 24s) ease-in-out infinite;
-  animation-delay: var(--delay, 0s);
-}
-
-@keyframes path-flow {
-  to {
-    stroke-dashoffset: -140;
-  }
-}
-
-@keyframes path-breathe {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-
-  50% {
-    opacity: 0.7;
-  }
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -525,9 +482,5 @@ main > h1::before {
   .code-block .line,
   .btn {
     transition: none;
-  }
-
-  .floating-paths path {
-    animation: none;
   }
 }

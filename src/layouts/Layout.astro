@@ -1,14 +1,11 @@
 ---
 import "../styles/global.css";
-import { generateBackgroundPaths, VIEWBOX } from "../lib/background-paths.ts";
 
 interface Props {
   title: string;
 }
 
 const { title } = Astro.props;
-
-const backgroundPaths = [...generateBackgroundPaths(1), ...generateBackgroundPaths(-1)];
 ---
 
 <!doctype html>
@@ -19,20 +16,6 @@ const backgroundPaths = [...generateBackgroundPaths(1), ...generateBackgroundPat
     <title>{title}</title>
   </head>
   <body>
-    <div class="floating-paths" aria-hidden="true">
-      <svg viewBox={`0 0 ${VIEWBOX.width} ${VIEWBOX.height}`} preserveAspectRatio="xMidYMid slice">
-        {
-          backgroundPaths.map((path, i) => (
-            <path
-              d={path.d}
-              stroke-opacity={path.strokeOpacity}
-              stroke-width={path.strokeWidth}
-              style={`--dur: ${18 + (i % 5) * 3}s; --delay: -${(i * 1.7).toFixed(1)}s;`}
-            />
-          ))
-        }
-      </svg>
-    </div>
     <slot />
   </body>
 </html>
