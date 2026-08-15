@@ -188,10 +188,15 @@ main > h1::before {
   flex-wrap: wrap;
   gap: 0.9rem 1.4rem;
   list-style: none;
-  margin: 0 0 1rem;
+  margin: 0;
   padding: 0;
   font-size: 0.8rem;
   color: var(--paper-dim);
+
+  /* Lives inside .controls (flex column) after .step-caption, which carries
+     an explicit order: 3 — without this, default order: 0 would place the
+     legend before the caption despite coming later in the DOM. */
+  order: 4;
 }
 
 .legend li {
@@ -215,7 +220,8 @@ main > h1::before {
 }
 
 .swatch-visited {
-  background: rgb(169 214 255 / 35%);
+  background: var(--verified-soft);
+  border-color: var(--verified);
 }
 
 .swatch-path {
@@ -319,8 +325,8 @@ main > h1::before {
 }
 
 .graph-node[data-state="visited"] circle {
-  fill: rgb(169 214 255 / 35%);
-  stroke: var(--linework);
+  fill: var(--verified-soft);
+  stroke: var(--verified);
 }
 
 .graph-node[data-state="path"] circle {
@@ -378,14 +384,28 @@ main > h1::before {
   background: var(--panel);
 }
 
+.code-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .code-panel h2 {
-  margin-block-start: 0;
+  margin: 0;
   font-family: var(--font-display);
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--paper-dim);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.btn-copy {
+  margin: 0;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .code-tabs {

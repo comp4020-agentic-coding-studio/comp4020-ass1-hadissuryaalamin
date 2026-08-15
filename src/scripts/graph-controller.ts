@@ -49,6 +49,7 @@ export class GraphController {
   private lastSource: StepSource = "control";
   private lang: CodeLang = "python";
   private autoplayHandle: number | null = null;
+  private copyResetHandle: number | null = null;
 
   /** Invoked at the end of every render caused by goToStep — lets an external scroll/pin layer react without polling. */
   onStepRendered: ((index: number, source: StepSource) => void) | null = null;
@@ -91,6 +92,9 @@ export class GraphController {
         this.setLang(lang),
       );
     }
+    this.query<HTMLButtonElement>('[data-testid="copy-code-button"]')?.addEventListener("click", () =>
+      void this.copyCode(),
+    );
 
     this.buildRail();
     this.buildTicks();
@@ -144,6 +148,29 @@ export class GraphController {
       const block = this.query<HTMLElement>(`[data-testid="code-block"][data-lang="${id}"]`);
       if (block) block.hidden = id !== lang;
     }
+  }
+
+  private async copyCode(): Promise<void> {
+    const block = this.query<HTMLElement>(`[data-testid="code-block"][data-lang="${this.lang}"]`);
+    const text = block?.querySelector("pre")?.textContent ?? "";
+    try {
+      await navigator.clipboard.writeText(text);
+      this.flashCopyFeedback("Copied!");
+      this.announce("Copied source to clipboard.");
+    } catch {
+      this.flashCopyFeedback("Copy failed");
+    }
+  }
+
+  private flashCopyFeedback(message: string): void {
+    const button = this.query<HTMLButtonElement>('[data-testid="copy-code-button"]');
+    if (!button) return;
+    if (this.copyResetHandle !== null) window.clearTimeout(this.copyResetHandle);
+    button.textContent = message;
+    this.copyResetHandle = window.setTimeout(() => {
+      button.textContent = "Copy";
+      this.copyResetHandle = null;
+    }, 1500);
   }
 
   /** Replays steps[0..stepIndex) to derive which nodes are settled and every discovered node's best-known cost. */
