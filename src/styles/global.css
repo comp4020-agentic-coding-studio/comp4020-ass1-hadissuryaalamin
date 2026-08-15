@@ -423,6 +423,15 @@ main > h1::before {
   font-family: var(--font-display);
   font-size: 0.8rem;
   line-height: 1.6;
+
+  /* Capped so a pinned .visualization (see .scroll-track) never grows taller
+     than the viewport it's pinned against — the longer Java sample runs to
+     ~46 lines, well past what either marking viewport has room for. Capped
+     here rather than on .code-block itself so the horizontal scroll-shadow
+     trick above (background-attachment: local, tied to .code-block's own
+     scroll box) keeps scrolling on its original axis only. */
+  max-height: 16rem;
+  overflow-y: auto;
 }
 
 .code-block .line {
@@ -480,6 +489,23 @@ main > h1::before {
   .graph-figure {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  /* Run/Prev/Next side by side instead of stacked — the pinned card has to
+     fit inside a phone viewport alongside the graph and code panel, and a
+     column of three full-width buttons costs far more vertical space than
+     the same three buttons in a row. */
+  .action-row {
+    flex-direction: row;
+  }
+
+  .action-row .btn {
+    width: auto;
+    flex: 1 1 0;
+  }
+
+  .code-block pre {
+    max-height: 9rem;
   }
 }
 
