@@ -466,6 +466,40 @@ main > h1::before {
   color: var(--paper);
 }
 
+/* Step rail — a static, always-visible summary of every step, built once
+   client-side from the same narrateStep() the live caption uses (see
+   GraphController). Desktop only: duplicates step-caption's content for
+   sighted users glancing ahead/behind, so it's aria-hidden, and there's no
+   spare width for it once the pinned card is at phone size. */
+.step-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+}
+
+.step-rail li {
+  padding: 0.35rem 0.6rem;
+  color: var(--paper-dim);
+  border: 1px solid var(--panel-line);
+  border-radius: 0.3rem;
+  background: var(--panel);
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.step-rail li[data-state="active"] {
+  color: var(--paper);
+  background: var(--redline-soft);
+  border-color: var(--redline);
+}
+
 /* Result banner — a data-plate readout */
 
 .result-banner {
@@ -511,6 +545,12 @@ main > h1::before {
   .code-block pre {
     max-height: 9rem;
   }
+
+  /* No spare width for a step-by-step summary once the graph, controls, and
+     code panel are already stacked in one column at phone size. */
+  .step-rail {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -518,6 +558,7 @@ main > h1::before {
   .graph-edge,
   .code-block .line,
   .btn,
+  .step-rail li,
   .visualization {
     transition: none;
   }

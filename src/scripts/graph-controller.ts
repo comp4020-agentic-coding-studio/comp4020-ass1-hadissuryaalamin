@@ -3,6 +3,7 @@ import { PHASE_LINES, type CodeLang, type CodePhase } from "../lib/code-samples.
 import { search, type SearchResult } from "../lib/dijkstra.ts";
 import { END_ID, GRAPH_EDGES, GRAPH_NODES, START_ID } from "../lib/example-graph.ts";
 import { prefersReducedMotion } from "../lib/motion.ts";
+import { narrateStep } from "../lib/narrate-step.ts";
 
 const LANGS: CodeLang[] = ["python", "java"];
 const AUTOPLAY_DELAY_MS = 900;
@@ -91,6 +92,7 @@ export class GraphController {
       );
     }
 
+    this.buildRail();
     this.renderStep();
   }
 
@@ -210,6 +212,32 @@ export class GraphController {
     this.renderControls(isFinish);
     this.renderCodeHighlight(isFinish);
     this.renderResult(isFinish);
+    this.updateRail();
+  }
+
+  /** One-time build of the desktop step rail — a static summary of every step, not a per-render cost. */
+  private buildRail(): void {
+    const rail = this.query<HTMLElement>('[data-testid="step-rail"]');
+    if (!rail) return;
+    for (let i = 0; i <= this.totalSteps; i++) {
+      const item = document.createElement("li");
+      item.dataset.step = String(i);
+      item.textContent = this.railLabel(i);
+      rail.appendChild(item);
+    }
+  }
+
+  /** A short first-clause summary derived from the same narrateStep() text the live caption uses. */
+  private railLabel(index: number): string {
+    const [firstSentence] = narrateStep(this.result, index, this.totalSteps).split(". ");
+    return firstSentence.replace(/\.$/, "");
+  }
+
+  private updateRail(): void {
+    const rail = this.query<HTMLElement>('[data-testid="step-rail"]');
+    rail?.querySelectorAll<HTMLElement>("li").forEach((item) => {
+      item.dataset.state = Number(item.dataset.step) === this.stepIndex ? "active" : "idle";
+    });
   }
 
   private currentPhase(isFinish: boolean): CodePhase {
@@ -226,39 +254,12 @@ export class GraphController {
     if (prevButton) prevButton.disabled = this.stepIndex === 0;
     if (nextButton) nextButton.disabled = isFinish;
 
-    const narration = this.narrateStep(isFinish);
+    const narration = narrateStep(this.result, this.stepIndex, this.totalSteps);
     this.setText('[data-testid="step-caption"]', narration);
     // Scroll-driven steps update the caption but don't spam the live region —
     // a reader scrubbing past many steps by scroll shouldn't get a rapid-fire
     // announcement per step; Prev/Next/Run still announce every time.
     if (this.lastSource === "control") this.announce(narration);
-  }
-
-  private narrateStep(isFinish: boolean): string {
-    if (this.stepIndex === 0) {
-      const remaining = this.totalSteps - 1;
-      return `Ready: g[${START_ID}] = 0. ${remaining} node${remaining === 1 ? "" : "s"} to pop — press Next or Run to begin.`;
-    }
-    if (isFinish) {
-      return `Finished: reconstructed the path ${this.result.path.join(" → ")} · total cost ${this.result.pathLength}.`;
-    }
-
-    const step = this.result.steps[this.stepIndex - 1];
-    const parts = [`Pop ${step.nodeId}: g=${step.g}.`];
-    if (step.neighbors.length === 0) {
-      parts.push("That's the end — break before expanding.");
-    } else {
-      for (const neighbor of step.neighbors) {
-        if (neighbor.status === "relaxed") {
-          parts.push(`Relax ${neighbor.nodeId} to g=${neighbor.tentativeG}.`);
-        } else if (neighbor.status === "skipped") {
-          parts.push(`Skip ${neighbor.nodeId} — already reached more cheaply.`);
-        } else {
-          parts.push(`${neighbor.nodeId} already closed.`);
-        }
-      }
-    }
-    return parts.join(" ");
   }
 
   private renderCodeHighlight(isFinish: boolean): void {
