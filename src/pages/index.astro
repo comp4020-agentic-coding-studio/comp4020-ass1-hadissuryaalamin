@@ -1,7 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { CODE_SOURCE, type CodeLang } from "../lib/code-samples.ts";
-import { GRAPH_EDGES, GRAPH_NODES, GRAPH_VIEWBOX } from "../lib/example-graph.ts";
+import { GRAPH_EDGES, GRAPH_NODES, GRAPH_VIEWBOX, START_ID } from "../lib/example-graph.ts";
 import { highlightCode } from "../lib/highlight.ts";
 
 // Node radius in viewBox units — edges are trimmed to stop at the circle's
@@ -123,8 +123,11 @@ const codeHtml: Record<CodeLang, string> = {
                 transform={`translate(${node.x} ${node.y})`}
               >
                 <circle r={NODE_RADIUS} />
-                <text dominant-baseline="middle" text-anchor="middle">
+                <text class="node-label" dominant-baseline="middle" text-anchor="middle">
                   {node.label}
+                </text>
+                <text class="node-cost" data-testid="node-cost" text-anchor="middle" y={NODE_RADIUS + 18}>
+                  {node.id === START_ID ? "g=0" : "g=∞"}
                 </text>
               </g>
             ))

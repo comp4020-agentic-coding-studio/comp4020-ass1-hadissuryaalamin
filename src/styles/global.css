@@ -225,14 +225,14 @@ main > h1::before {
 
 .visualization {
   display: flex;
+  flex-direction: column;
   gap: 1.5rem;
-  align-items: flex-start;
 }
 
 .graph-figure {
-  flex: 1 1 32rem;
+  width: 100%;
   max-width: 40rem;
-  margin: 1.5rem 0 0;
+  margin: 1.5rem auto 0;
 }
 
 .graph {
@@ -290,8 +290,14 @@ main > h1::before {
   stroke: var(--redline);
 }
 
-.graph-node[data-state="path"] text {
+.graph-node[data-state="path"] .node-label {
   fill: var(--blueprint);
+}
+
+.graph-node .node-cost {
+  font-size: 0.7rem;
+  font-weight: 600;
+  fill: var(--paper-dim);
 }
 
 .graph-edge {
@@ -326,9 +332,7 @@ main > h1::before {
 /* Code panel — pre-rendered shiki markup, one language visible at a time */
 
 .code-panel {
-  flex: 1 1 24rem;
-  min-width: 16rem;
-  max-width: 28rem;
+  width: 100%;
   margin-block: 1.5rem;
   padding: 1rem 1.25rem;
   border: 1px solid var(--panel-line);
@@ -361,7 +365,25 @@ main > h1::before {
 .code-block {
   overflow-x: auto;
   border-radius: 0.3rem;
-  background: var(--blueprint);
+  background-color: var(--blueprint);
+
+  /* Scroll-shadow trick (Lea Verou's four-background technique, adapted to the
+     horizontal axis): each "cover" layer is opaque panel-color scrolling WITH the
+     content (background-attachment: local), so it exactly hides the matching dark
+     "shadow" layer underneath — which is pinned to the viewport (attachment: scroll)
+     — everywhere except right at a true content edge still off-screen. Net effect:
+     a dark fade appears only on the side(s) that still have more code to scroll to,
+     and disappears once a line fits or you've scrolled all the way. Pure CSS, no JS
+     needed to detect overflow. */
+  background-image:
+    linear-gradient(to right, var(--blueprint) 30%, rgb(10 38 71 / 0%)),
+    linear-gradient(to left, var(--blueprint) 30%, rgb(10 38 71 / 0%)),
+    linear-gradient(to right, rgb(0 0 0 / 35%), rgb(0 0 0 / 0%)),
+    linear-gradient(to left, rgb(0 0 0 / 35%), rgb(0 0 0 / 0%));
+  background-repeat: no-repeat;
+  background-size: 2rem 100%, 2rem 100%, 0.9rem 100%, 0.9rem 100%;
+  background-position: 0 0, 100% 0, 0 0, 100% 0;
+  background-attachment: local, local, scroll, scroll;
 }
 
 .code-block pre {
@@ -438,19 +460,8 @@ main > h1::before {
 }
 
 @media (width <= 60rem) {
-  .visualization {
-    flex-direction: column;
-  }
-
   .graph-figure {
     max-width: 100%;
-    width: 100%;
-  }
-
-  .code-panel {
-    flex-basis: auto;
-    max-width: none;
-    width: 100%;
   }
 }
 

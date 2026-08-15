@@ -58,6 +58,22 @@ describe("core interaction: the Dijkstra walkthrough is present in the shipped p
     expect(doc?.querySelector('[data-testid="step-caption"]')).toBeTruthy();
   });
 
+  // Spec: state changes should be visible, not just narrated — each node
+  // shows its own known cost, starting at 0 for the start node and infinity
+  // for every other node, updated on every step (see graph-controller.ts's
+  // renderStep, which keeps this in sync with the same knownG map that
+  // drives node color state).
+  it("shows each node's known cost, starting at 0 for S and infinity elsewhere", () => {
+    const costs = doc?.querySelectorAll('[data-testid="node-cost"]');
+    expect(costs?.length).toBe(7);
+    const startCost = doc?.querySelector('[data-testid="graph-node"][data-node-id="S"] [data-testid="node-cost"]');
+    expect(startCost?.textContent?.trim()).toBe("g=0");
+    const otherCosts = Array.from(costs ?? [])
+      .filter((el) => el.closest('[data-node-id="S"]') === null)
+      .map((el) => el.textContent?.trim());
+    expect(otherCosts).toEqual(otherCosts.map(() => "g=∞"));
+  });
+
   it("has a result banner, initially hidden", () => {
     const banner = doc?.querySelector('[data-testid="result-banner"]');
     expect(banner).toBeTruthy();
