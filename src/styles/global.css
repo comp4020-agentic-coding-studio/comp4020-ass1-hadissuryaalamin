@@ -249,6 +249,10 @@ main > h1::before {
 }
 
 .visualization.lift-off {
+  /* Scoped to exactly the pinned window (added/removed by ScrollPinController
+     at pin-enter/exit) rather than left on permanently, so the compositor
+     layer it hints at isn't kept allocated for the whole page lifetime. */
+  will-change: box-shadow, scale;
   box-shadow: 0 1.5rem 3rem -1rem rgb(0 0 0 / 35%);
   scale: 1.01;
 }

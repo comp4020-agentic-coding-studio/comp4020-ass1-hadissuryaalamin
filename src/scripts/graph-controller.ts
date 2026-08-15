@@ -268,17 +268,37 @@ export class GraphController {
     for (const lang of LANGS) {
       const active = new Set(PHASE_LINES[lang][phase]);
       const block = this.query<HTMLElement>(`[data-testid="code-block"][data-lang="${lang}"]`);
+      const pre = block?.querySelector<HTMLElement>("pre") ?? null;
+      let firstActiveEl: HTMLElement | null = null;
+
       block?.querySelectorAll<HTMLElement>(".line").forEach((el) => {
         const lineNumber = Number(el.dataset.line);
         const wasActive = el.dataset.state === "active";
         const isActive = active.has(lineNumber);
         el.dataset.state = isActive ? "active" : "idle";
+        if (isActive && !firstActiveEl) firstActiveEl = el;
         if (!reduceMotion && isActive && !wasActive && lang === this.lang) {
           gsap.killTweensOf(el);
           gsap.fromTo(el, { opacity: 0.35 }, { opacity: 1, duration: 0.3, ease: "power1.out" });
         }
       });
+
+      if (lang === this.lang && firstActiveEl) this.scrollLineIntoView(pre, firstActiveEl, !reduceMotion);
     }
+  }
+
+  /**
+   * Keeps the active line visible inside .code-block pre's own capped-height
+   * scroll box (see the height cap in global.css) — scrolls that element's
+   * scrollTop directly rather than Element.scrollIntoView(), which would walk
+   * up through the page's own scroll position too and could yank the whole
+   * page to follow a step change made far from the pinned card.
+   */
+  private scrollLineIntoView(pre: HTMLElement | null, lineEl: HTMLElement, smooth: boolean): void {
+    if (!pre) return;
+    const lineTop = lineEl.getBoundingClientRect().top - pre.getBoundingClientRect().top + pre.scrollTop;
+    const target = lineTop - pre.clientHeight / 2 + lineEl.clientHeight / 2;
+    pre.scrollTo({ top: Math.max(0, target), behavior: smooth ? "smooth" : "auto" });
   }
 
   private renderResult(isFinish: boolean): void {
