@@ -2,17 +2,13 @@ import gsap from "gsap";
 import { PHASE_LINES, type CodeLang, type CodePhase } from "../lib/code-samples.ts";
 import { search, type SearchResult } from "../lib/dijkstra.ts";
 import { END_ID, GRAPH_EDGES, GRAPH_NODES, START_ID } from "../lib/example-graph.ts";
+import { prefersReducedMotion } from "../lib/motion.ts";
 
 const LANGS: CodeLang[] = ["python", "java"];
 const AUTOPLAY_DELAY_MS = 900;
 
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
+/** Who last moved the step cursor — control (button/Run) announces via aria-live, scroll doesn't (see renderControls). */
+export type StepSource = "control" | "scroll";
 
 /** Quick scale-pop for a single node/edge settling into its new state. */
 function popNode(el: SVGElement, big: boolean): void {
@@ -47,15 +43,42 @@ function popPath(elements: SVGElement[]): void {
 export class GraphController {
   private readonly root: ParentNode;
   private readonly result: SearchResult;
-  private readonly totalSteps: number;
+  readonly totalSteps: number;
   private stepIndex = 0;
+  private lastSource: StepSource = "control";
   private lang: CodeLang = "python";
   private autoplayHandle: number | null = null;
+
+  /** Invoked at the end of every render caused by goToStep — lets an external scroll/pin layer react without polling. */
+  onStepRendered: ((index: number, source: StepSource) => void) | null = null;
 
   constructor(root: ParentNode) {
     this.root = root;
     this.result = search(GRAPH_NODES, GRAPH_EDGES, START_ID, END_ID);
     this.totalSteps = this.result.steps.length + 1;
+  }
+
+  get currentStep(): number {
+    return this.stepIndex;
+  }
+
+  /**
+   * The one write path for stepIndex. Buttons/Run and an external scroll
+   * layer both call this — stepIndex stays the single source of truth,
+   * scroll is just another caller, not a second state machine.
+   */
+  goToStep(index: number, source: StepSource = "control"): void {
+    const clamped = Math.max(0, Math.min(this.totalSteps, index));
+    this.lastSource = source;
+    if (clamped === this.stepIndex) return;
+    this.stepIndex = clamped;
+    this.renderStep();
+    this.onStepRendered?.(this.stepIndex, source);
+  }
+
+  /** Public alias for stopAutoplay — lets an external scroll layer cancel Run on a genuine manual scroll. */
+  interrupt(): void {
+    this.stopAutoplay();
   }
 
   start(): void {
@@ -73,8 +96,7 @@ export class GraphController {
 
   private run(): void {
     this.stopAutoplay();
-    this.stepIndex = 0;
-    this.renderStep();
+    this.goToStep(0, "control");
     this.scheduleAutoplay();
   }
 
@@ -82,7 +104,7 @@ export class GraphController {
     if (this.stepIndex >= this.totalSteps) return;
     this.autoplayHandle = window.setTimeout(
       () => {
-        this.stepNext();
+        this.goToStep(this.stepIndex + 1, "control");
         this.scheduleAutoplay();
       },
       prefersReducedMotion() ? 0 : AUTOPLAY_DELAY_MS,
@@ -105,15 +127,11 @@ export class GraphController {
   };
 
   private stepPrev(): void {
-    if (this.stepIndex === 0) return;
-    this.stepIndex -= 1;
-    this.renderStep();
+    this.goToStep(this.stepIndex - 1, "control");
   }
 
   private stepNext(): void {
-    if (this.stepIndex >= this.totalSteps) return;
-    this.stepIndex += 1;
-    this.renderStep();
+    this.goToStep(this.stepIndex + 1, "control");
   }
 
   private setLang(lang: CodeLang): void {
@@ -210,7 +228,10 @@ export class GraphController {
 
     const narration = this.narrateStep(isFinish);
     this.setText('[data-testid="step-caption"]', narration);
-    this.announce(narration);
+    // Scroll-driven steps update the caption but don't spam the live region —
+    // a reader scrubbing past many steps by scroll shouldn't get a rapid-fire
+    // announcement per step; Prev/Next/Run still announce every time.
+    if (this.lastSource === "control") this.announce(narration);
   }
 
   private narrateStep(isFinish: boolean): string {
