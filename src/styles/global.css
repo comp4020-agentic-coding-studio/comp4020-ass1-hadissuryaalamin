@@ -261,7 +261,11 @@ main > h1::before {
   align-items: flex-start;
   gap: 1.5rem;
   width: 100%;
-  margin-block-start: 1.5rem;
+
+  /* <figure> carries a UA-default 40px inline margin — reset it explicitly,
+     since margin-block-start alone leaves it in place and it overflows the
+     390px phone viewport. */
+  margin: 1.5rem 0 0;
 }
 
 .graph-stage {
