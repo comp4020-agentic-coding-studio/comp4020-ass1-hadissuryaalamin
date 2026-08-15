@@ -2,17 +2,14 @@ import gsap from "gsap";
 import { PHASE_LINES, type CodeLang, type CodePhase } from "../lib/code-samples.ts";
 import { search, type SearchResult } from "../lib/dijkstra.ts";
 import { END_ID, GRAPH_EDGES, GRAPH_NODES, START_ID } from "../lib/example-graph.ts";
+import { prefersReducedMotion } from "../lib/motion.ts";
+import { narrateStep } from "../lib/narrate-step.ts";
 
 const LANGS: CodeLang[] = ["python", "java"];
 const AUTOPLAY_DELAY_MS = 900;
 
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
+/** Who last moved the step cursor — control (button/Run) announces via aria-live, scroll doesn't (see renderControls). */
+export type StepSource = "control" | "scroll";
 
 /** Quick scale-pop for a single node/edge settling into its new state. */
 function popNode(el: SVGElement, big: boolean): void {
@@ -47,15 +44,42 @@ function popPath(elements: SVGElement[]): void {
 export class GraphController {
   private readonly root: ParentNode;
   private readonly result: SearchResult;
-  private readonly totalSteps: number;
+  readonly totalSteps: number;
   private stepIndex = 0;
+  private lastSource: StepSource = "control";
   private lang: CodeLang = "python";
   private autoplayHandle: number | null = null;
+
+  /** Invoked at the end of every render caused by goToStep — lets an external scroll/pin layer react without polling. */
+  onStepRendered: ((index: number, source: StepSource) => void) | null = null;
 
   constructor(root: ParentNode) {
     this.root = root;
     this.result = search(GRAPH_NODES, GRAPH_EDGES, START_ID, END_ID);
     this.totalSteps = this.result.steps.length + 1;
+  }
+
+  get currentStep(): number {
+    return this.stepIndex;
+  }
+
+  /**
+   * The one write path for stepIndex. Buttons/Run and an external scroll
+   * layer both call this — stepIndex stays the single source of truth,
+   * scroll is just another caller, not a second state machine.
+   */
+  goToStep(index: number, source: StepSource = "control"): void {
+    const clamped = Math.max(0, Math.min(this.totalSteps, index));
+    this.lastSource = source;
+    if (clamped === this.stepIndex) return;
+    this.stepIndex = clamped;
+    this.renderStep();
+    this.onStepRendered?.(this.stepIndex, source);
+  }
+
+  /** Public alias for stopAutoplay — lets an external scroll layer cancel Run on a genuine manual scroll. */
+  interrupt(): void {
+    this.stopAutoplay();
   }
 
   start(): void {
@@ -68,13 +92,14 @@ export class GraphController {
       );
     }
 
+    this.buildRail();
+    this.buildTicks();
     this.renderStep();
   }
 
   private run(): void {
     this.stopAutoplay();
-    this.stepIndex = 0;
-    this.renderStep();
+    this.goToStep(0, "control");
     this.scheduleAutoplay();
   }
 
@@ -82,7 +107,7 @@ export class GraphController {
     if (this.stepIndex >= this.totalSteps) return;
     this.autoplayHandle = window.setTimeout(
       () => {
-        this.stepNext();
+        this.goToStep(this.stepIndex + 1, "control");
         this.scheduleAutoplay();
       },
       prefersReducedMotion() ? 0 : AUTOPLAY_DELAY_MS,
@@ -105,15 +130,11 @@ export class GraphController {
   };
 
   private stepPrev(): void {
-    if (this.stepIndex === 0) return;
-    this.stepIndex -= 1;
-    this.renderStep();
+    this.goToStep(this.stepIndex - 1, "control");
   }
 
   private stepNext(): void {
-    if (this.stepIndex >= this.totalSteps) return;
-    this.stepIndex += 1;
-    this.renderStep();
+    this.goToStep(this.stepIndex + 1, "control");
   }
 
   private setLang(lang: CodeLang): void {
@@ -192,6 +213,52 @@ export class GraphController {
     this.renderControls(isFinish);
     this.renderCodeHighlight(isFinish);
     this.renderResult(isFinish);
+    this.updateRail();
+    this.updateTicks();
+  }
+
+  /** One-time build of the desktop step rail — a static summary of every step, not a per-render cost. */
+  private buildRail(): void {
+    const rail = this.query<HTMLElement>('[data-testid="step-rail"]');
+    if (!rail) return;
+    for (let i = 0; i <= this.totalSteps; i++) {
+      const item = document.createElement("li");
+      item.dataset.step = String(i);
+      item.textContent = this.railLabel(i);
+      rail.appendChild(item);
+    }
+  }
+
+  /** A short first-clause summary derived from the same narrateStep() text the live caption uses. */
+  private railLabel(index: number): string {
+    const [firstSentence] = narrateStep(this.result, index, this.totalSteps).split(". ");
+    return firstSentence.replace(/\.$/, "");
+  }
+
+  private updateRail(): void {
+    const rail = this.query<HTMLElement>('[data-testid="step-rail"]');
+    rail?.querySelectorAll<HTMLElement>("li").forEach((item) => {
+      item.dataset.state = Number(item.dataset.step) === this.stepIndex ? "active" : "idle";
+    });
+  }
+
+  /** One-time build of the always-visible (both viewports) progress ticks — independent of the desktop-only rail. */
+  private buildTicks(): void {
+    const ticks = this.query<HTMLElement>('[data-testid="progress-ticks"]');
+    if (!ticks) return;
+    for (let i = 0; i <= this.totalSteps; i++) {
+      const tick = document.createElement("span");
+      tick.dataset.step = String(i);
+      ticks.appendChild(tick);
+    }
+  }
+
+  private updateTicks(): void {
+    const ticks = this.query<HTMLElement>('[data-testid="progress-ticks"]');
+    ticks?.querySelectorAll<HTMLElement>("span").forEach((tick) => {
+      const i = Number(tick.dataset.step);
+      tick.dataset.state = i === this.stepIndex ? "current" : i < this.stepIndex ? "done" : "upcoming";
+    });
   }
 
   private currentPhase(isFinish: boolean): CodePhase {
@@ -208,36 +275,12 @@ export class GraphController {
     if (prevButton) prevButton.disabled = this.stepIndex === 0;
     if (nextButton) nextButton.disabled = isFinish;
 
-    const narration = this.narrateStep(isFinish);
+    const narration = narrateStep(this.result, this.stepIndex, this.totalSteps);
     this.setText('[data-testid="step-caption"]', narration);
-    this.announce(narration);
-  }
-
-  private narrateStep(isFinish: boolean): string {
-    if (this.stepIndex === 0) {
-      const remaining = this.totalSteps - 1;
-      return `Ready: g[${START_ID}] = 0. ${remaining} node${remaining === 1 ? "" : "s"} to pop — press Next or Run to begin.`;
-    }
-    if (isFinish) {
-      return `Finished: reconstructed the path ${this.result.path.join(" → ")} · total cost ${this.result.pathLength}.`;
-    }
-
-    const step = this.result.steps[this.stepIndex - 1];
-    const parts = [`Pop ${step.nodeId}: g=${step.g}.`];
-    if (step.neighbors.length === 0) {
-      parts.push("That's the end — break before expanding.");
-    } else {
-      for (const neighbor of step.neighbors) {
-        if (neighbor.status === "relaxed") {
-          parts.push(`Relax ${neighbor.nodeId} to g=${neighbor.tentativeG}.`);
-        } else if (neighbor.status === "skipped") {
-          parts.push(`Skip ${neighbor.nodeId} — already reached more cheaply.`);
-        } else {
-          parts.push(`${neighbor.nodeId} already closed.`);
-        }
-      }
-    }
-    return parts.join(" ");
+    // Scroll-driven steps update the caption but don't spam the live region —
+    // a reader scrubbing past many steps by scroll shouldn't get a rapid-fire
+    // announcement per step; Prev/Next/Run still announce every time.
+    if (this.lastSource === "control") this.announce(narration);
   }
 
   private renderCodeHighlight(isFinish: boolean): void {
@@ -247,17 +290,37 @@ export class GraphController {
     for (const lang of LANGS) {
       const active = new Set(PHASE_LINES[lang][phase]);
       const block = this.query<HTMLElement>(`[data-testid="code-block"][data-lang="${lang}"]`);
+      const pre = block?.querySelector<HTMLElement>("pre") ?? null;
+      let firstActiveEl: HTMLElement | null = null;
+
       block?.querySelectorAll<HTMLElement>(".line").forEach((el) => {
         const lineNumber = Number(el.dataset.line);
         const wasActive = el.dataset.state === "active";
         const isActive = active.has(lineNumber);
         el.dataset.state = isActive ? "active" : "idle";
+        if (isActive && !firstActiveEl) firstActiveEl = el;
         if (!reduceMotion && isActive && !wasActive && lang === this.lang) {
           gsap.killTweensOf(el);
           gsap.fromTo(el, { opacity: 0.35 }, { opacity: 1, duration: 0.3, ease: "power1.out" });
         }
       });
+
+      if (lang === this.lang && firstActiveEl) this.scrollLineIntoView(pre, firstActiveEl, !reduceMotion);
     }
+  }
+
+  /**
+   * Keeps the active line visible inside .code-block pre's own capped-height
+   * scroll box (see the height cap in global.css) — scrolls that element's
+   * scrollTop directly rather than Element.scrollIntoView(), which would walk
+   * up through the page's own scroll position too and could yank the whole
+   * page to follow a step change made far from the pinned card.
+   */
+  private scrollLineIntoView(pre: HTMLElement | null, lineEl: HTMLElement, smooth: boolean): void {
+    if (!pre) return;
+    const lineTop = lineEl.getBoundingClientRect().top - pre.getBoundingClientRect().top + pre.scrollTop;
+    const target = lineTop - pre.clientHeight / 2 + lineEl.clientHeight / 2;
+    pre.scrollTo({ top: Math.max(0, target), behavior: smooth ? "smooth" : "auto" });
   }
 
   private renderResult(isFinish: boolean): void {

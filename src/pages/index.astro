@@ -58,7 +58,8 @@ const codeHtml: Record<CodeLang, string> = {
       <li><span class="swatch swatch-path"></span> Shortest path</li>
     </ul>
 
-    <div class="visualization">
+    <div class="scroll-track" data-testid="scroll-track">
+      <div class="visualization">
       <figure class="graph-figure">
         <div class="graph-stage">
           <svg
@@ -133,6 +134,7 @@ const codeHtml: Record<CodeLang, string> = {
             <button type="button" class="btn btn-outline" data-testid="step-prev" disabled>⟨ Prev</button>
             <button type="button" class="btn btn-outline" data-testid="step-next">Next ⟩</button>
           </div>
+          <div class="progress-ticks" data-testid="progress-ticks" aria-hidden="true"></div>
           <p class="step-counter" data-testid="step-counter"></p>
           <p class="step-caption" data-testid="step-caption"></p>
         </section>
@@ -161,6 +163,9 @@ const codeHtml: Record<CodeLang, string> = {
           ))
         }
       </aside>
+
+      <ol class="step-rail" data-testid="step-rail" aria-hidden="true"></ol>
+      </div>
     </div>
 
     <p class="sr-only" role="status" aria-live="polite" data-testid="graph-status"></p>
