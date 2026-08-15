@@ -243,18 +243,17 @@ main > h1::before {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  transition:
-    box-shadow 0.2s ease,
-    scale 0.2s ease;
 }
 
 .visualization.lift-off {
   /* Scoped to exactly the pinned window (added/removed by ScrollPinController
      at pin-enter/exit) rather than left on permanently, so the compositor
-     layer it hints at isn't kept allocated for the whole page lifetime. */
+     layer it hints at isn't kept allocated for the whole page lifetime. The
+     box-shadow/scale values themselves are a GSAP timeline in
+     ScrollPinController.setLiftOff, not a CSS transition — so the ramp can be
+     killed and reversed mid-flight if the reader scrolls back before it
+     settles, instead of racing a fixed-duration CSS transition. */
   will-change: box-shadow, scale;
-  box-shadow: 0 1.5rem 3rem -1rem rgb(0 0 0 / 35%);
-  scale: 1.01;
 }
 
 .graph-figure {
@@ -558,8 +557,7 @@ main > h1::before {
   .graph-edge,
   .code-block .line,
   .btn,
-  .step-rail li,
-  .visualization {
+  .step-rail li {
     transition: none;
   }
 

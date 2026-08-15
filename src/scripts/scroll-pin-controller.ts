@@ -9,6 +9,13 @@ const LIFT_OFF_CLASS = "lift-off";
 /** Fallback in case the scrollend event never fires (unsupported browser, or scroll cancelled mid-flight). */
 const PROGRAMMATIC_SCROLL_TIMEOUT_MS = 700;
 
+/** Elevation ramp for the pinned card — GSAP-driven (not a CSS transition) so entry/exit can be killed and reversed mid-flight without a snap. */
+const LIFT_OFF_DURATION_S = 0.2;
+const LIFT_OFF_EASE = "power1.out";
+const LIFT_OFF_BOX_SHADOW = "0 1.5rem 3rem -1rem rgb(0 0 0 / 35%)";
+const FLAT_BOX_SHADOW = "0 0 0 0 rgb(0 0 0 / 0%)";
+const LIFT_OFF_SCALE = 1.01;
+
 /**
  * Lifts the graph panel out of flow and pins it while its scroll track
  * passes through, scrubbing the existing step cursor forward/backward as the
@@ -50,14 +57,16 @@ export class ScrollPinController {
         start: "top top",
         end: "bottom bottom",
         scrub: true,
-        onEnter: () => this.pinEl.classList.add(LIFT_OFF_CLASS),
-        onEnterBack: () => this.pinEl.classList.add(LIFT_OFF_CLASS),
-        onLeave: () => this.pinEl.classList.remove(LIFT_OFF_CLASS),
-        onLeaveBack: () => this.pinEl.classList.remove(LIFT_OFF_CLASS),
+        onEnter: () => this.setLiftOff(true),
+        onEnterBack: () => this.setLiftOff(true),
+        onLeave: () => this.setLiftOff(false),
+        onLeaveBack: () => this.setLiftOff(false),
         onUpdate: (self) => this.onScrollUpdate(self.progress),
       });
 
       return () => {
+        gsap.killTweensOf(this.pinEl);
+        gsap.set(this.pinEl, { clearProps: "boxShadow,scale" });
         this.pinEl.classList.remove(LIFT_OFF_CLASS);
         this.trigger?.kill();
         this.trigger = null;
@@ -71,6 +80,18 @@ export class ScrollPinController {
     this.mm?.revert();
     this.mm = null;
     this.graph.onStepRendered = null;
+  }
+
+  /** Ramps the pinned card's elevation in/out via a GSAP tween (not a CSS transition) so it can be killed and reversed mid-flight if the reader scrolls back before it settles. */
+  private setLiftOff(engaged: boolean): void {
+    this.pinEl.classList.toggle(LIFT_OFF_CLASS, engaged);
+    gsap.killTweensOf(this.pinEl);
+    gsap.to(this.pinEl, {
+      boxShadow: engaged ? LIFT_OFF_BOX_SHADOW : FLAT_BOX_SHADOW,
+      scale: engaged ? LIFT_OFF_SCALE : 1,
+      duration: LIFT_OFF_DURATION_S,
+      ease: LIFT_OFF_EASE,
+    });
   }
 
   private onScrollUpdate(progress: number): void {
