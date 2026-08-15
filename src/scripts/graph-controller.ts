@@ -93,6 +93,7 @@ export class GraphController {
     }
 
     this.buildRail();
+    this.buildTicks();
     this.renderStep();
   }
 
@@ -213,6 +214,7 @@ export class GraphController {
     this.renderCodeHighlight(isFinish);
     this.renderResult(isFinish);
     this.updateRail();
+    this.updateTicks();
   }
 
   /** One-time build of the desktop step rail — a static summary of every step, not a per-render cost. */
@@ -237,6 +239,25 @@ export class GraphController {
     const rail = this.query<HTMLElement>('[data-testid="step-rail"]');
     rail?.querySelectorAll<HTMLElement>("li").forEach((item) => {
       item.dataset.state = Number(item.dataset.step) === this.stepIndex ? "active" : "idle";
+    });
+  }
+
+  /** One-time build of the always-visible (both viewports) progress ticks — independent of the desktop-only rail. */
+  private buildTicks(): void {
+    const ticks = this.query<HTMLElement>('[data-testid="progress-ticks"]');
+    if (!ticks) return;
+    for (let i = 0; i <= this.totalSteps; i++) {
+      const tick = document.createElement("span");
+      tick.dataset.step = String(i);
+      ticks.appendChild(tick);
+    }
+  }
+
+  private updateTicks(): void {
+    const ticks = this.query<HTMLElement>('[data-testid="progress-ticks"]');
+    ticks?.querySelectorAll<HTMLElement>("span").forEach((tick) => {
+      const i = Number(tick.dataset.step);
+      tick.dataset.state = i === this.stepIndex ? "current" : i < this.stepIndex ? "done" : "upcoming";
     });
   }
 

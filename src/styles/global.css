@@ -450,6 +450,31 @@ main > h1::before {
   box-shadow: inset 3px 0 0 var(--linework);
 }
 
+/* Progress ticks — a compact, always-visible (both viewports) indicator of
+   position within the walkthrough, independent of the desktop-only rail
+   above. The step-counter text right below already says "Step X of Y", so
+   this is aria-hidden and purely a glanceable visual. */
+.progress-ticks {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.progress-ticks span {
+  flex: 1 1 0;
+  height: 0.3rem;
+  border-radius: 0.15rem;
+  background: var(--panel-line);
+  transition: background 0.15s ease;
+}
+
+.progress-ticks span[data-state="done"] {
+  background: var(--linework);
+}
+
+.progress-ticks span[data-state="current"] {
+  background: var(--redline);
+}
+
 .step-counter {
   margin: 0;
   font-family: var(--font-display);
@@ -557,7 +582,8 @@ main > h1::before {
   .graph-edge,
   .code-block .line,
   .btn,
-  .step-rail li {
+  .step-rail li,
+  .progress-ticks span {
     transition: none;
   }
 
