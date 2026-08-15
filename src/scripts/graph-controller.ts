@@ -174,6 +174,8 @@ export class GraphController {
         "aria-label",
         gv === undefined ? `Node ${node.label}, ${state}` : `Node ${node.label}, ${state}, known cost ${gv}`,
       );
+      const costEl = el.querySelector<SVGTextElement>(".node-cost");
+      if (costEl) costEl.textContent = gv === undefined ? "g=∞" : `g=${gv}`;
     }
 
     for (const edge of GRAPH_EDGES) {

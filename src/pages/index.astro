@@ -1,7 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { CODE_SOURCE, type CodeLang } from "../lib/code-samples.ts";
-import { GRAPH_EDGES, GRAPH_NODES, GRAPH_VIEWBOX } from "../lib/example-graph.ts";
+import { GRAPH_EDGES, GRAPH_NODES, GRAPH_VIEWBOX, START_ID } from "../lib/example-graph.ts";
 import { highlightCode } from "../lib/highlight.ts";
 
 // Node radius in viewBox units — edges are trimmed to stop at the circle's
@@ -52,16 +52,6 @@ const codeHtml: Record<CodeLang, string> = {
       and Next.
     </p>
 
-    <section class="controls" data-testid="controls" aria-label="Walkthrough controls">
-      <div class="action-row">
-        <button type="button" class="btn btn-fill" data-testid="run-button">▶ Run</button>
-        <button type="button" class="btn btn-outline" data-testid="step-prev" disabled>⟨ Prev</button>
-        <button type="button" class="btn btn-outline" data-testid="step-next">Next ⟩</button>
-      </div>
-      <p class="step-counter" data-testid="step-counter"></p>
-      <p class="step-caption" data-testid="step-caption"></p>
-    </section>
-
     <ul class="legend" aria-hidden="true">
       <li><span class="swatch swatch-frontier"></span> Frontier</li>
       <li><span class="swatch swatch-visited"></span> Visited</li>
@@ -70,67 +60,82 @@ const codeHtml: Record<CodeLang, string> = {
 
     <div class="visualization">
       <figure class="graph-figure">
-        <svg
-          class="graph"
-          data-testid="graph"
-          viewBox={`0 0 ${GRAPH_VIEWBOX.width} ${GRAPH_VIEWBOX.height}`}
-          role="img"
-          aria-label={`Directed graph with ${GRAPH_NODES.length} nodes and ${GRAPH_EDGES.length} weighted edges, from S (start) to T (end)`}
-        >
-          <defs>
-            <marker
-              id="arrow-idle"
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--panel-line)" />
-            </marker>
-            <marker
-              id="arrow-path"
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--redline)" />
-            </marker>
-          </defs>
-
-          {
-            edgeRenders.map(({ edge, x1, y1, x2, y2, labelX, labelY }) => (
-              <g class="graph-edge" data-testid="graph-edge" data-edge-id={edge.id} data-state="idle">
-                <line x1={x1} y1={y1} x2={x2} y2={y2} marker-end="url(#arrow-idle)" />
-                <text x={labelX} y={labelY} class="edge-weight">
-                  {edge.weight}
-                </text>
-              </g>
-            ))
-          }
-
-          {
-            GRAPH_NODES.map((node) => (
-              <g
-                class="graph-node"
-                data-testid="graph-node"
-                data-node-id={node.id}
-                data-state="idle"
-                transform={`translate(${node.x} ${node.y})`}
+        <div class="graph-stage">
+          <svg
+            class="graph"
+            data-testid="graph"
+            viewBox={`0 0 ${GRAPH_VIEWBOX.width} ${GRAPH_VIEWBOX.height}`}
+            role="img"
+            aria-label={`Directed graph with ${GRAPH_NODES.length} nodes and ${GRAPH_EDGES.length} weighted edges, from S (start) to T (end)`}
+          >
+            <defs>
+              <marker
+                id="arrow-idle"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
               >
-                <circle r={NODE_RADIUS} />
-                <text dominant-baseline="middle" text-anchor="middle">
-                  {node.label}
-                </text>
-              </g>
-            ))
-          }
-        </svg>
-        <figcaption class="graph-caption">S = start &middot; T = end</figcaption>
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--panel-line)" />
+              </marker>
+              <marker
+                id="arrow-path"
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--redline)" />
+              </marker>
+            </defs>
+
+            {
+              edgeRenders.map(({ edge, x1, y1, x2, y2, labelX, labelY }) => (
+                <g class="graph-edge" data-testid="graph-edge" data-edge-id={edge.id} data-state="idle">
+                  <line x1={x1} y1={y1} x2={x2} y2={y2} marker-end="url(#arrow-idle)" />
+                  <text x={labelX} y={labelY} class="edge-weight">
+                    {edge.weight}
+                  </text>
+                </g>
+              ))
+            }
+
+            {
+              GRAPH_NODES.map((node) => (
+                <g
+                  class="graph-node"
+                  data-testid="graph-node"
+                  data-node-id={node.id}
+                  data-state="idle"
+                  transform={`translate(${node.x} ${node.y})`}
+                >
+                  <circle r={NODE_RADIUS} />
+                  <text class="node-label" dominant-baseline="middle" text-anchor="middle">
+                    {node.label}
+                  </text>
+                  <text class="node-cost" data-testid="node-cost" text-anchor="middle" y={NODE_RADIUS + 18}>
+                    {node.id === START_ID ? "g=0" : "g=∞"}
+                  </text>
+                </g>
+              ))
+            }
+          </svg>
+          <figcaption class="graph-caption">S = start &middot; T = end</figcaption>
+        </div>
+
+        <section class="controls" data-testid="controls" aria-label="Walkthrough controls">
+          <div class="action-row">
+            <button type="button" class="btn btn-fill" data-testid="run-button">▶ Run</button>
+            <button type="button" class="btn btn-outline" data-testid="step-prev" disabled>⟨ Prev</button>
+            <button type="button" class="btn btn-outline" data-testid="step-next">Next ⟩</button>
+          </div>
+          <p class="step-counter" data-testid="step-counter"></p>
+          <p class="step-caption" data-testid="step-caption"></p>
+        </section>
       </figure>
 
       <aside class="code-panel" data-testid="code-panel" aria-label="Dijkstra source code">
